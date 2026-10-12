@@ -1,0 +1,49 @@
+importance = 100
+// java : lang_target = [ "ru_ru", "en_us", "zh_cn" ]
+
+k    = char "examplemod:knight"
+m    = char "examplemod:magician"
+king = char "examplemod:king"
+
+k, t"Мы тебя здесь раньше не видели"
+m, t"Да, откуда ты взялся?!"
+goto proc "examplemod:example_proc"
+/*
+if player.guild == "knight":
+     return "knight_guild"
+else:
+     return "magician_guild"
+*/
+
+knight_guild:
+k, "А, значит ты из нашей гильдии!"
+m, "Тогда понятно почему он такой грязный.."
+goto next
+
+magician_guild:
+m, "А, значит ты из нашей гильдии!"
+k, "Тогда понятно почему он такой.. манерный.."
+
+next:
+k, "{company_cap}, проходите <red>сюда</red>"
+m, "{company_cap}", не медлите! Экзамен начинается..."
+m, "ЧЕРЕЗ, {company_up}, МИНУТУ! МЫ ОПАЗДЫВАЕМ"
+k, "Ой..."
+king, "Медлите.<wait 2s> Быстро в зал"
+
+// Система, фразы проиграются одновременно!
+{ k, mini, "Есть!"
+{ m, mini, "Есть!"
+
+choice  "Что вы сделаете?"
+variant "Ударить короля", king_attacked
+variant "Промолчать"    , silence
+
+king_attacked:
+king, "Как ты посмел, отброс?!"
+goto end
+
+silence:
+king, "Встретимся там..."
+
+end:
