@@ -8,6 +8,7 @@ import net.aros.haru.lex.Token;
 import net.aros.haru.lex.TokenType;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,7 +45,7 @@ public class Parser {
             Token ident = advance();
             if (match(EQUAL)) return declaration(ident);
             if (match(COLON)) return new Stmt.Label(ident);
-            if (match(COMMA)) return line(new Expr.Variable(ident));
+            if (check(COMMA)) return line(new Expr.Variable(ident));
             return command(ident);
         }
         return line(expression());
@@ -71,10 +72,14 @@ public class Parser {
     private Stmt.@NotNull Line line(Expr first) {
         List<Expr> items = new ArrayList<>();
         items.add(first);
-//        consume(COMMA, "Expect ',' after first element of a line");
-        if (!check(SEMICOLON)) {
-            do items.add(expression()); while (match(COMMA));
+        while (match(COMMA)) {
+            if (check(SEMICOLON)) break;
+            items.add(expression());
         }
+//        consume(COMMA, "Expect ',' after first element of a line");
+//        if (!check(SEMICOLON)) {
+//            do items.add(expression()); while (match(COMMA));
+//        }
         consume(SEMICOLON, "Expect ';' after last element of a line");
         return new Stmt.Line(items);
     }
@@ -94,16 +99,29 @@ public class Parser {
         if (match(IDENTIFIER)) {
             Token identifier = previous();
 
-            if (match(NULL)) return new Expr.PrefixedLiteral(identifier, null);
-            if (match(NUMBER, STRING)) return new Expr.PrefixedLiteral(identifier, previous().literal());
+            Expr.Literal literal = literal();
+            if (literal != null) return new Expr.PrefixedLiteral(identifier, literal);
 
             return new Expr.Variable(identifier);
         }
 
+        if (match(LPAREN)) {
+            Expr expr = expression();
+            consume(RPAREN, "Expect ')' after expression");
+            return expr;
+        }
+
+        Expr.Literal literal = literal();
+        if (literal == null) throw error(peek(), "Expect expression");
+        return literal;
+    }
+
+    @Nullable
+    private Expr.Literal literal() {
         if (match(NULL)) return new Expr.Literal(null, previous().pos());
         if (match(NUMBER, STRING)) return new Expr.Literal(previous().literal(), previous().pos());
-
-        throw error(peek(), "Expect expression");
+        if (match(TEXT)) return new Expr.Literal(new TextParser(diagnosticCollector, previous()).parse(), previous().pos());
+        return null;
     }
 
     private void consume(TokenType type, String message) {

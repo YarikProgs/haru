@@ -45,7 +45,7 @@ public sealed interface Expr {
      * @param prefix prefix
      * @param value literal
      */
-    record PrefixedLiteral(Token prefix, Object value) implements Expr {
+    record PrefixedLiteral(Token prefix, Literal value) implements Expr {
         @Override
         public SourcePos pos() {
             return prefix.pos();

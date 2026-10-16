@@ -4,6 +4,7 @@ import net.aros.haru.ast.Expr;
 import net.aros.haru.ast.Program;
 import net.aros.haru.ast.Stmt;
 import net.aros.haru.diagnostic.DiagnosticCollector;
+import net.aros.haru.parse.ParsedText;
 import net.aros.haru.value.Value;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -44,12 +45,18 @@ public class Compiler implements Expr.Visitor<Value>, Stmt.Visitor {
 
     @Override
     public Value visitLiteral(Expr.@NotNull Literal expr) {
-        return literalAsValue(expr.value());
+        return switch (expr.value()) {
+            case Double d -> Value.number(d);
+            case String s -> Value.string(s);
+            case ParsedText parsedText -> Value.text(parsedText);
+            case null -> Value.nullValue();
+            default -> throw new IllegalArgumentException("Unknown literal type: " + expr.value().getClass());
+        };
     }
 
     @Override
     public Value visitPrefixedLiteral(Expr.@NotNull PrefixedLiteral expr) {
-        return Value.prefixedValue(expr.prefix().lexeme(), literalAsValue(expr.value()));
+        return Value.prefixedValue(expr.prefix().lexeme(), visit(expr.value()));
     }
 
     @Override
@@ -115,14 +122,5 @@ public class Compiler implements Expr.Visitor<Value>, Stmt.Visitor {
             items.add(visit(expr));
         }
         return new Instruction.Line(items);
-    }
-
-    private Value literalAsValue(Object o) {
-        return switch (o) {
-            case Double d -> Value.number(d);
-            case String s -> Value.string(s);
-            case null -> Value.nullValue();
-            default -> throw new IllegalArgumentException("Unknown literal type: " + o.getClass());
-        };
     }
 }

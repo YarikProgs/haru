@@ -15,7 +15,7 @@ public class Lexer {
             "null", NULL
     );
     private static final Set<TokenType> STMT_END_TOKENS = Set.of(
-            IDENTIFIER, NUMBER, STRING, NULL
+            IDENTIFIER, NUMBER, STRING, TEXT, NULL, COMMA
     );
 
     private final List<Token> tokens = new ArrayList<>();
@@ -33,6 +33,10 @@ public class Lexer {
         while (!isAtEnd()) {
             start = current;
             lexToken();
+        }
+        if (canInsertSemicolon) {
+            start = current;
+            addToken(SEMICOLON);
         }
         tokens.add(new Token(EOF, new SourcePos(line, column), "", null));
         return tokens;
@@ -56,6 +60,8 @@ public class Lexer {
             case ';' -> addToken(SEMICOLON);
             case ':' -> addToken(COLON);
             case '{' -> addToken(LBRACE);
+            case ')' -> addToken(RPAREN);
+            case '(' -> addToken(LPAREN);
             case '#' -> consumeComment();
             case '-' -> {
                 if (match('>'))
@@ -75,7 +81,8 @@ public class Lexer {
                 if (canInsertSemicolon) addToken(SEMICOLON);
                 newline();
             }
-            case '\'', '"' -> string();
+            case '\'' -> string(true);
+            case '"' -> string(false);
             case ' ', '\r', '\t' -> {
             }
             default -> unknownToken();
@@ -105,7 +112,9 @@ public class Lexer {
     private void consumeMultilineComment() {
         while (peek() != '*' && peekNext() != '/') {
             if (isAtEnd()) {
-                diagnosticCollector.error("Unterminated comment", new SourcePos(line, column));
+                var pos = new SourcePos(line, column);
+                diagnosticCollector.error("Unterminated comment.", pos);
+                diagnosticCollector.error("Add */ to terminate the comment", pos);
                 return;
             }
             if (advance() == '\n') newline();
@@ -123,15 +132,27 @@ public class Lexer {
         while (peek() != '\n' && !isAtEnd()) advance();
     }
 
-    private void string() {
-        while (peek() != '"' && peek() != '\'' && !isAtEnd()) {
+    private void string(boolean literal) {
+        char quote = literal ? '\'' : '"';
+        while (peek() != quote && peek() != '\n' && !isAtEnd()) {
             advance();
         }
-        if (isAtEnd())
-            diagnosticCollector.error("Unterminated string", new SourcePos(line, column - current + start));
-        else
-            advance(); // " '
-        addToken(STRING, unescapeString(source.substring(start + 1, current - 1), column - current + start));
+        if (peek() == '\n' || isAtEnd()) {
+            var pos = new SourcePos(line, column - current + start);
+            diagnosticCollector.error("Unterminated string", pos);
+            diagnosticCollector.hint("Add closing '" + quote + "' to terminate the string", pos);
+            addString(literal, true);
+            return;
+        }
+        else advance(); // " '
+        addString(literal, false);
+    }
+
+    private void addString(boolean literal, boolean unterminated) {
+        addToken(
+                literal ? STRING : TEXT,
+                unescapeString(source.substring(start + 1, unterminated ? current : current - 1), column - current + start)
+        );
     }
 
     private String unescapeString(String string, int columnStart) {
@@ -145,7 +166,9 @@ public class Lexer {
             }
 
             if (++i >= string.length()) {
-                diagnosticCollector.error("Dangling backslash", new SourcePos(line, columnStart + i - 1));
+                var pos = new SourcePos(line, columnStart + i - 1);
+                diagnosticCollector.error("Dangling backslash", pos);
+                diagnosticCollector.hint("Use \\\\ for a literal backslash", pos);
                 break;
             }
             char e = string.charAt(i);
@@ -156,10 +179,15 @@ public class Lexer {
                 case '\\' -> sb.append('\\');
                 case '"' -> sb.append('"');
                 case '\'' -> sb.append('\'');
+                case '<' -> sb.append("\\<"); // same
+                case '{' -> sb.append("\\{"); // same
                 case '0' -> sb.append('\0');
                 // TODO: \ uXXXX
-                default ->
-                        diagnosticCollector.error("Unknown escape '\\" + e + "'", new SourcePos(line, columnStart + i - 1));
+                default -> {
+                    var pos = new SourcePos(line, columnStart + i - 1);
+                    diagnosticCollector.error("Unknown escape '\\" + e + "'", pos);
+                    diagnosticCollector.hint("Use \\\\ for a literal backslash", pos);
+                }
             }
         }
         return sb.toString();

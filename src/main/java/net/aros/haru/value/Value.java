@@ -1,16 +1,22 @@
 package net.aros.haru.value;
 
+import net.aros.haru.ast.TextPart;
+import net.aros.haru.parse.ParsedText;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.function.Supplier;
 
-public sealed interface Value permits NullValue, NumberValue, PrefixedValue, StringValue, VariableValue {
+public sealed interface Value permits NullValue, NumberValue, PrefixedValue, StringValue, TextValue, VariableValue {
     default boolean isNumber() {
         return false;
     }
 
     default boolean isString() {
+        return false;
+    }
+
+    default boolean isText() {
         return false;
     }
 
@@ -30,6 +36,14 @@ public sealed interface Value permits NullValue, NumberValue, PrefixedValue, Str
         throw new IllegalStateException("Not a string");
     }
 
+    default TextPart asText() {
+        throw new IllegalStateException("Not a text");
+    }
+
+    default String asRawText() {
+        throw new IllegalStateException("Not a text");
+    }
+
     default PrefixedValue asPrefixedValue() {
         throw new IllegalStateException("Not a prefixed value");
     }
@@ -42,6 +56,11 @@ public sealed interface Value permits NullValue, NumberValue, PrefixedValue, Str
     @Contract("_ -> new")
     static @NotNull Value string(String value) {
         return new StringValue(value);
+    }
+
+    @Contract("_ -> new")
+    static @NotNull Value text(ParsedText parsedText) {
+        return new TextValue(parsedText);
     }
 
     @Contract("_, _ -> new")

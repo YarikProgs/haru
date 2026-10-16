@@ -1,19 +1,14 @@
 importance = 100
-// java : lang_target = [ "ru_ru", "en_us", "zh_cn" ]
+// 'string' - literal      | '{placeholder}' - won't work | '<red>a</red>' - won't work
+// "string" - translation  | "{placeholder}" - will       | "<red>a</red>" - will
 
-k    = char "examplemod:knight"
-m    = char "examplemod:magician"
-king = char "examplemod:king"
+k    = char 'example:knight'
+m    = char 'example:magician'
+king = char 'example:king'
 
-k, t"Мы тебя здесь раньше не видели"
-m, t"Да, откуда ты взялся?!"
-goto proc "examplemod:example_proc"
-/*
-if player.guild == "knight":
-     return "knight_guild"
-else:
-     return "magician_guild"
-*/
+k, "Мы тебя здесь раньше не видели"
+m, "Да, откуда ты взялся?!"
+goto proc 'example:proc' /* pseudo: player.guild == "knight" ? "knight_guild" : "magician_guild" */
 
 knight_guild:
 k, "А, значит ты из нашей гильдии!"
@@ -26,10 +21,10 @@ k, "Тогда понятно почему он такой.. манерный.."
 
 next:
 k, "{company_cap}, проходите <red>сюда</red>"
-m, "{company_cap}", не медлите! Экзамен начинается..."
+m, "{company_cap}, не медлите! Экзамен начинается..."
 m, "ЧЕРЕЗ, {company_up}, МИНУТУ! МЫ ОПАЗДЫВАЕМ"
 k, "Ой..."
-king, "Медлите.<wait 2s> Быстро в зал"
+king, "Медлите.<wait 2s/> Быстро в зал"
 
 // Система, фразы проиграются одновременно!
 { k, mini, "Есть!"
