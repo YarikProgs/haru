@@ -5,10 +5,12 @@ import net.aros.haru.parse.ParsedText;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.function.Supplier;
-
-public sealed interface Value permits NullValue, NumberValue, PrefixedValue, StringValue, TextValue, VariableValue {
+public sealed interface Value permits BoolValue, NullValue, NumberValue, StringValue, TextValue {
     default boolean isNumber() {
+        return false;
+    }
+
+    default boolean isBool() {
         return false;
     }
 
@@ -20,16 +22,16 @@ public sealed interface Value permits NullValue, NumberValue, PrefixedValue, Str
         return false;
     }
 
-    default boolean isPrefixedValue() {
-        return false;
-    }
-
     default boolean isNull() {
         return false;
     }
 
     default double asNumber() {
         throw new IllegalStateException("Not a number");
+    }
+
+    default boolean asBool() {
+        throw new IllegalStateException("Not a bool");
     }
 
     default String asString() {
@@ -44,13 +46,14 @@ public sealed interface Value permits NullValue, NumberValue, PrefixedValue, Str
         throw new IllegalStateException("Not a text");
     }
 
-    default PrefixedValue asPrefixedValue() {
-        throw new IllegalStateException("Not a prefixed value");
-    }
-
     @Contract("_ -> new")
     static @NotNull Value number(double value) {
         return new NumberValue(value);
+    }
+
+    @Contract("_ -> new")
+    static @NotNull Value bool(boolean value) {
+        return new BoolValue(value);
     }
 
     @Contract("_ -> new")
@@ -63,17 +66,13 @@ public sealed interface Value permits NullValue, NumberValue, PrefixedValue, Str
         return new TextValue(parsedText);
     }
 
-    @Contract("_, _ -> new")
-    static @NotNull Value prefixedValue(String prefix, Value value) {
-        return new PrefixedValue(prefix, value);
-    }
-
-    @Contract(value = "_ -> new", pure = true)
-    static @NotNull Value variableValue(Supplier<Value> supplier) {
-        return new VariableValue(supplier);
-    }
-
     static Value nullValue() {
         return NullValue.INSTANCE;
+    }
+
+    default boolean isFalsey() {
+        if (isBool()) return !asBool();
+        if (isNumber()) return asNumber() == 0;
+        return isNull();
     }
 }

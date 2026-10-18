@@ -1,16 +1,88 @@
 package net.aros.haru.compile;
 
+import net.aros.haru.runtime.AbstractDialoguePlayer;
+import net.aros.haru.runtime.DialogueException;
+import net.aros.haru.runtime.Util;
+import net.aros.haru.value.HaruFunction;
 import net.aros.haru.value.Value;
-
-import java.util.List;
+import org.jetbrains.annotations.NotNull;
 
 public sealed interface Instruction {
-    record Command(String command, List<Value> arguments) implements Instruction {
+    void execute(AbstractDialoguePlayer player) throws DialogueException;
+
+    record Line(int argc) implements Instruction {
+        @Override
+        public void execute(@NotNull AbstractDialoguePlayer player) {
+            player.suspend();
+            player.onLine(Util.popRev(player, argc));
+        }
     }
 
-    record Line(List<Value> values) implements Instruction {
+    record ParallelLines(int[] argcs) implements Instruction {
+        @Override
+        public void execute(@NotNull AbstractDialoguePlayer player) {
+            player.suspend();
+            player.onLines(Util.popRev(player, argcs));
+        }
     }
 
-    record ParallelLines(List<Line> lines) implements Instruction {
+    record PushConst(Value constant) implements Instruction {
+        @Override
+        public void execute(@NotNull AbstractDialoguePlayer player) {
+            player.push(constant);
+        }
+    }
+
+    record Call(HaruFunction function, int argc) implements Instruction {
+        @Override
+        public void execute(AbstractDialoguePlayer player) throws DialogueException {
+            Util.checkedCall(player, function, Util.popRev(player, argc));
+        }
+    }
+
+    record Pop() implements Instruction {
+        public static final Pop INSTANCE = new Pop();
+
+        @Override
+        public void execute(@NotNull AbstractDialoguePlayer player) {
+            player.pop();
+        }
+    }
+
+    record Load(int slot) implements Instruction {
+        @Override
+        public void execute(@NotNull AbstractDialoguePlayer player) {
+            player.push(player.get(slot));
+        }
+    }
+
+    record Store(int slot) implements Instruction {
+        @Override
+        public void execute(@NotNull AbstractDialoguePlayer player) {
+            player.set(slot, player.pop());
+        }
+    }
+
+    record Jump(int target) implements Instruction {
+        @Override
+        public void execute(@NotNull AbstractDialoguePlayer player) {
+            player.jump(target);
+        }
+    }
+
+    record JumpIfFalse(int target) implements Instruction {
+        @Override
+        public void execute(@NotNull AbstractDialoguePlayer player) {
+            if (player.pop().isFalsey()) player.jump(target);
+        }
+    }
+
+    record End() implements Instruction {
+        public static final End INSTANCE = new End();
+
+        @Override
+        public void execute(@NotNull AbstractDialoguePlayer player) {
+            player.terminate();
+        }
     }
 }

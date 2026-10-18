@@ -7,6 +7,11 @@ version = "1.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
+
+    maven {
+        name = "Minecraft Libraries"
+        url = uri("https://libraries.minecraft.net")
+    }
 }
 
 dependencies {
@@ -14,6 +19,8 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:6.0.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+    implementation("com.mojang:datafixerupper:8.0.16")
 }
 
 tasks.test {

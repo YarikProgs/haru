@@ -4,9 +4,10 @@ import net.aros.haru.ast.Expr;
 import net.aros.haru.ast.Program;
 import net.aros.haru.ast.Stmt;
 import net.aros.haru.diagnostic.DiagnosticCollector;
+import net.aros.haru.lex.Token;
 import net.aros.haru.parse.ParsedText;
+import net.aros.haru.value.HaruFunction;
 import net.aros.haru.value.Value;
-import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -14,20 +15,28 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class Compiler implements Expr.Visitor<Value>, Stmt.Visitor {
-    private final Map<String, Value> defaults = new HashMap<>();
-    private final Map<String, Value> values = new HashMap<>();
+//TODO: 'end.'
+public class Compiler implements Expr.Visitor<Void>, Stmt.Visitor {
     private final List<Instruction> instructions = new ArrayList<>();
     private final DiagnosticCollector diagnosticCollector;
     private final Program program;
+    private final Map<String, Integer> slots = new HashMap<>();
+    private final Map<String, HaruFunction> functions = new HashMap<>();
+    private int slot = 0;
+    private boolean compilationFailed = false;
 
     public Compiler(DiagnosticCollector diagnosticCollector, Program program) {
         this.diagnosticCollector = diagnosticCollector;
         this.program = program;
     }
 
-    public Compiler setDefault(String name, Value value) {
-        defaults.put(name, value);
+    public Compiler declareFunction(String name, HaruFunction function) {
+        functions.put(name, function);
+        return this;
+    }
+
+    public Compiler declareExternalVariable(String name) {
+        slots.put(name, slot++);
         return this;
     }
 
@@ -35,92 +44,101 @@ public class Compiler implements Expr.Visitor<Value>, Stmt.Visitor {
         for (Stmt stmt : program.statements()) {
             visit(stmt);
         }
-        return new CompiledProgram(defaults, values, instructions);
+        emit(Instruction.End.INSTANCE);
+        if (compilationFailed) return null;
+        return new CompiledProgram(instructions.toArray(Instruction[]::new), Map.copyOf(slots));
     }
 
     @Override
-    public Value visitVariable(Expr.@NotNull Variable expr) {
-        return Value.variableValue(() -> values.getOrDefault(expr.name().lexeme(), Value.nullValue()));
+    public Void visitVariable(Expr.@NotNull Variable expr) {
+        Integer slot = slots.get(expr.name().lexeme());
+        if (slot == null) {
+            diagnosticCollector.error("Unknown variable: '" + expr.name().lexeme() + "'", expr.name().pos());
+            compilationFailed = true;
+            return null;
+        }
+        emit(new Instruction.Load(slot));
+        return null;
     }
 
     @Override
-    public Value visitLiteral(Expr.@NotNull Literal expr) {
-        return switch (expr.value()) {
+    public Void visitLiteral(Expr.@NotNull Literal expr) {
+        Value value = switch (expr.value()) {
             case Double d -> Value.number(d);
             case String s -> Value.string(s);
             case ParsedText parsedText -> Value.text(parsedText);
             case null -> Value.nullValue();
             default -> throw new IllegalArgumentException("Unknown literal type: " + expr.value().getClass());
         };
+        emit(new Instruction.PushConst(value));
+        return null;
     }
 
     @Override
-    public Value visitPrefixedLiteral(Expr.@NotNull PrefixedLiteral expr) {
-        return Value.prefixedValue(expr.prefix().lexeme(), visit(expr.value()));
+    public void visitExprStmt(Stmt.@NotNull ExprStmt stmt) {
+        visit(stmt.expr());
+        emit(Instruction.Pop.INSTANCE);
     }
 
     @Override
-    public void visitLabel(Stmt.@NotNull Label stmt) {
-        String name = stmt.name().lexeme();
-        if (values.containsKey(name)) {
-            diagnosticCollector.error("Label '" + name + "' overrides other variable/label '" + name + "'", stmt.pos());
-            return;
+    public void visitEnd(Stmt.End stmt) {
+        emit(Instruction.End.INSTANCE);
+    }
+
+    @Override
+    public Void visitCall(Expr.@NotNull Call expr) {
+        for (Expr arg : expr.args()) {
+            visit(arg);
         }
-        values.put(name, Value.number(instructions.size()));
-    }
-
-    @Override
-    public void visitCommand(Stmt.@NotNull Command stmt) {
-        List<Value> arguments = new ArrayList<>();
-        for (Expr argument : stmt.arguments()) {
-            arguments.add(visit(argument));
+        Token callee = expr.callee();
+        if (!functions.containsKey(callee.lexeme())) {
+            diagnosticCollector.error("Unknown function: '" + callee.lexeme() + "'", callee.pos());
+            compilationFailed = true;
+            return null;
         }
-        instructions.add(new Instruction.Command(stmt.name().lexeme(), arguments));
+        emit(new Instruction.Call(functions.get(callee.lexeme()), expr.args().size()));
+        return null;
     }
 
     @Override
     public void visitLine(Stmt.@NotNull Line stmt) {
-        if (stmt.items().isEmpty()) {
-            // How. Why?
-            return;
+        for (Expr expr : stmt.items()) {
+            visit(expr);
         }
-        instructions.add(lineStmtAsInstruction(stmt));
+        emit(new Instruction.Line(stmt.items().size()));
     }
 
     @Override
     public void visitSystem(Stmt.@NotNull System stmt) {
-        if (stmt.lines().isEmpty()) {
-            // How? Why?
-            return;
-        }
         if (stmt.lines().size() == 1) {
-            diagnosticCollector.warn("System with 1 line", stmt.pos());
-            diagnosticCollector.hint("Consider replacing system with line", stmt.pos());
+            diagnosticCollector.warn("System with single line", stmt.pos());
+            diagnosticCollector.hint("Consider replacing system with line (remove the '{')", stmt.pos());
         }
 
-        List<Instruction.Line> lines = new ArrayList<>();
+        int[] argcs = new int[stmt.lines().size()];
+        int i = 0;
         for (Stmt.Line line : stmt.lines()) {
-            lines.add(lineStmtAsInstruction(line));
+            argcs[i++] = line.items().size();
+            for (Expr item : line.items()) visit(item);
         }
-        instructions.add(new Instruction.ParallelLines(lines));
+        emit(new Instruction.ParallelLines(argcs));
     }
 
     @Override
     public void visitDeclaration(Stmt.@NotNull Declaration stmt) {
         String name = stmt.name().lexeme();
-        if (values.containsKey(name)) {
-            diagnosticCollector.error("Variable '" + name + "' overrides other variable/label '" + name + "'", stmt.pos());
+        if (slots.containsKey(name)) {
+            diagnosticCollector.error("Variable '" + name + "' already defined", stmt.name().pos());
+            compilationFailed = true;
             return;
         }
-        values.put(name, visit(stmt.value()));
+        int slot = this.slot++;
+        slots.put(name, slot);
+        visit(stmt.value());
+        emit(new Instruction.Store(slot));
     }
 
-    @Contract("_ -> new")
-    private Instruction.@NotNull Line lineStmtAsInstruction(Stmt.@NotNull Line lineStmt) {
-        List<Value> items = new ArrayList<>();
-        for (Expr expr : lineStmt.items()) {
-            items.add(visit(expr));
-        }
-        return new Instruction.Line(items);
+    private void emit(Instruction instruction) {
+        instructions.add(instruction);
     }
 }

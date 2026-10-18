@@ -9,6 +9,10 @@ import net.aros.haru.diagnostic.DiagnosticCollector;
 import net.aros.haru.lex.Lexer;
 import net.aros.haru.lex.Token;
 import net.aros.haru.parse.Parser;
+import net.aros.haru.runtime.AbstractDialoguePlayer;
+import net.aros.haru.runtime.DialogueException;
+import net.aros.haru.value.HaruFunction;
+import net.aros.haru.value.Value;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.BufferedReader;
@@ -17,7 +21,9 @@ import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 public class HaruCli {
     public static final int EX_USAGE = 2;
@@ -67,19 +73,54 @@ public class HaruCli {
             printDiagnostics(filename, diagnosticCollector.diagnostics());
             return;
         }
-        CompiledProgram compiledProgram = new Compiler(diagnosticCollector, program).compile();
+        CompiledProgram compiledProgram = new Compiler(diagnosticCollector, program)
+                .declareFunction("add1", new HaruFunction() {
+                    @Override
+                    public Value call(Value arg1) {
+                        if (arg1.isNumber()) return Value.number(arg1.asNumber() + 1);
+                        return Value.nullValue();
+                    }
+                })
+                .compile();
         System.out.println("Diagnostics:");
         printDiagnostics(filename, diagnosticCollector.diagnostics());
         if (diagnosticCollector.hasErrors()) {
             return;
         }
-        System.out.println("\nValues:");
-        compiledProgram.values().forEach((name, value) -> {
-            System.out.println("* " + name + " = " + value);
-        });
         System.out.println("\nInstructions:");
         for (Instruction instruction : compiledProgram.instructions()) {
             System.out.println("* " + instruction);
+        }
+        System.out.println("\nRunning:");
+        try {
+            var player = new ExampleDialoguePlayer(compiledProgram);
+            while (!player.isDone()) {
+                player.update();
+            }
+        } catch (DialogueException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static class ExampleDialoguePlayer extends AbstractDialoguePlayer {
+        public ExampleDialoguePlayer(@NotNull CompiledProgram program) throws DialogueException {
+            super(program, Map.of());
+        }
+
+        @Override
+        public void onLine(Value[] args) {
+            System.out.println("Line: " + Arrays.toString(args));
+            resume();
+        }
+
+        @Override
+        public void onLines(Value[][] args) {
+            System.out.println("Parallel(");
+            for (Value[] arg : args) {
+                System.out.println("* Line: " + Arrays.toString(arg));
+            }
+            System.out.println(")");
+            resume();
         }
     }
 

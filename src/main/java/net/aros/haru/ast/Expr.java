@@ -4,6 +4,8 @@ import net.aros.haru.lex.SourcePos;
 import net.aros.haru.lex.Token;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.List;
+
 /**
  * Expressions
  * */
@@ -28,7 +30,7 @@ public sealed interface Expr {
     }
 
     /**
-     * An expression that represents a literal value
+     * An expression that represents a literal constant
      * <p>
      * Examples: {@code 10}, {@code "Hello world!"}, {@code null}
      *
@@ -38,17 +40,16 @@ public sealed interface Expr {
     }
 
     /**
-     * An expression that represents a literal value but with a string prefix
+     * An expression that represents a function call
      * <p>
-     * Examples: {@code proc "aengine:choose_line"}, {@code char "aengine:aros"}
-     *
-     * @param prefix prefix
-     * @param value literal
+     * Examples: {@code proc("aengine:choose_line")}, {@code char("aengine:aros")}
+     * @param callee
+     * @param args
      */
-    record PrefixedLiteral(Token prefix, Literal value) implements Expr {
+    record Call(Token callee, List<Expr> args) implements Expr {
         @Override
         public SourcePos pos() {
-            return prefix.pos();
+            return callee.pos();
         }
     }
 
@@ -57,13 +58,13 @@ public sealed interface Expr {
 
         T visitLiteral(Literal expr);
 
-        T visitPrefixedLiteral(PrefixedLiteral expr);
+        T visitCall(Call expr);
 
         default T visit(@NotNull Expr expr) {
             return switch (expr) {
                 case Variable variable -> visitVariable(variable);
                 case Literal literal -> visitLiteral(literal);
-                case PrefixedLiteral prefixedLiteral -> visitPrefixedLiteral(prefixedLiteral);
+                case Call call -> visitCall(call);
             };
         }
     }

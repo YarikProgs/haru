@@ -12,10 +12,11 @@ import static net.aros.haru.lex.TokenType.*;
 
 public class Lexer {
     private static final Map<String, TokenType> KEYWORDS = Map.of(
-            "null", NULL
+            "null", NULL,
+            "let", LET
     );
     private static final Set<TokenType> STMT_END_TOKENS = Set.of(
-            IDENTIFIER, NUMBER, STRING, TEXT, NULL, COMMA
+            IDENTIFIER, NUMBER, STRING, TEXT, NULL, COMMA, RPAREN
     );
 
     private final List<Token> tokens = new ArrayList<>();
@@ -106,7 +107,10 @@ public class Lexer {
     private void identifierOrKeyword() {
         while (isAlpha(peek()) || isDigit(peek())) advance();
         String lexeme = source.substring(start, current);
-        addToken(KEYWORDS.getOrDefault(lexeme, IDENTIFIER));
+        if ("end".equals(lexeme) && match('.'))
+            addToken(END);
+        else
+            addToken(KEYWORDS.getOrDefault(lexeme, IDENTIFIER));
     }
 
     private void consumeMultilineComment() {

@@ -13,35 +13,6 @@ public sealed interface Stmt {
     SourcePos pos();
 
     /**
-     * A statement that represents a label
-     * <p>
-     * Examples: {@code label:}, {@code after_fight:}
-     *
-     * @param name name of the label
-     */
-    record Label(Token name) implements Stmt {
-        @Override
-        public SourcePos pos() {
-            return name.pos();
-        }
-    }
-
-    /**
-     * A statement that represents a command
-     * <p>
-     * Examples: {@code goto label}, {@code wait 50}
-     *
-     * @param name      name of the command
-     * @param arguments arguments passed to the command
-     */
-    record Command(Token name, List<Expr> arguments) implements Stmt {
-        @Override
-        public SourcePos pos() {
-            return name.pos();
-        }
-    }
-
-    /**
      * A statement that represents a line
      * <p>
      * Example: {@code knight, sad, "My sword..."}
@@ -75,7 +46,7 @@ public sealed interface Stmt {
      * Examples: {@code a = 20}, {@code importance = 100}
      *
      * @param name  name of the variable
-     * @param value value of the variable
+     * @param value constant of the variable
      */
     record Declaration(Token name, Expr value) implements Stmt {
         @Override
@@ -84,24 +55,50 @@ public sealed interface Stmt {
         }
     }
 
+    /**
+     * A statement that represents an expression
+     * <p>
+     * Examples: {@code 3}, {@code wait(2)}
+     * @param expr expression
+     */
+    record ExprStmt(Expr expr) implements Stmt {
+        @Override
+        public SourcePos pos() {
+            return expr.pos();
+        }
+    }
+
+    /**
+     * A statement that represents the end of dialogue (terminator)
+     * <p>
+     * Examples: {@code end.}
+     * @param token 'end.' token
+     */
+    record End(Token token) implements Stmt {
+        @Override
+        public SourcePos pos() {
+            return token.pos();
+        }
+    }
+
     interface Visitor {
-        void visitLabel(Label stmt);
-
-        void visitCommand(Command stmt);
-
         void visitLine(Line stmt);
 
         void visitSystem(System stmt);
 
         void visitDeclaration(Declaration stmt);
 
+        void visitExprStmt(ExprStmt stmt);
+
+        void visitEnd(End stmt);
+
         default void visit(@NotNull Stmt stmt) {
             switch (stmt) {
-                case Label label -> visitLabel(label);
-                case Command command -> visitCommand(command);
                 case Line line -> visitLine(line);
                 case System system -> visitSystem(system);
                 case Declaration decl -> visitDeclaration(decl);
+                case ExprStmt exprStmt -> visitExprStmt(exprStmt);
+                case End end -> visitEnd(end);
             }
         }
     }

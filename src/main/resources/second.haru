@@ -1,27 +1,15 @@
-a = 10
-adachi = char 'adachi_rei'
+let a = 10
+let adachi = char('adachi_rei')
 
 /*
-if proc "is_money_higher_100":
-    "Так ты богатый, да?"
+if proc("get_total_rep") > 100:
+    adachi, "Привет, друг!"
 else:
-    "Так ты бедный, да?"
-"Подойди"
+    adachi, "Здравствуй"
 */
-goto proc "choose_from_money" /* if money > 100: "higher_100" else "less_100" */
 
-higher_100:
-"Так ты богатый да?"
-goto money_end
-
-less_100:
-"Так ты бедный да?"
-
-money_end:
-"Подойди"
-
-
+adachi, "Подойди сюда"
 
 adachi, "<slower 2s>Echo</slower>, {player}!"
-pause sec 10
-(char 'adachi_rei'), "<faster 0.1s>Echo</faster>, {player}!!!"
+pause_sec(10)
+char('adachi_rei'), "<faster 0.1s>Echo</faster>, {player}!!!"

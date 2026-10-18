@@ -40,18 +40,17 @@ public class Parser {
     }
 
     private Stmt statement() {
+        if (match(LET)) return declaration();
         if (match(LBRACE)) return system();
-        if (check(IDENTIFIER)) {
-            Token ident = advance();
-            if (match(EQUAL)) return declaration(ident);
-            if (match(COLON)) return new Stmt.Label(ident);
-            if (check(COMMA)) return line(new Expr.Variable(ident));
-            return command(ident);
-        }
-        return line(expression());
+        if (match(END)) return new Stmt.End(previous());
+        Expr expr = expression();
+        if (check(COMMA)) return line(expr);
+        return exprStmt(expr);
     }
 
-    private Stmt declaration(Token name) {
+    private Stmt declaration() {
+        Token name = consume(IDENTIFIER, "Expect variable name after 'let'");
+        consume(EQUAL, "Expect '=' after variable name");
         var expr = expression();
         consume(SEMICOLON, "Expect ';' after expression");
         return new Stmt.Declaration(name, expr);
@@ -61,9 +60,7 @@ public class Parser {
     private @NotNull Stmt system() {
         List<Stmt.Line> lines = new ArrayList<>();
         do {
-            Expr expr = expression();
-            consume(COMMA, "Expect ',' after first item in line");
-            lines.add(line(expr));
+            lines.add(line(expression()));
         } while (match(LBRACE));
         return new Stmt.System(lines);
     }
@@ -76,57 +73,57 @@ public class Parser {
             if (check(SEMICOLON)) break;
             items.add(expression());
         }
-//        consume(COMMA, "Expect ',' after first element of a line");
-//        if (!check(SEMICOLON)) {
-//            do items.add(expression()); while (match(COMMA));
-//        }
         consume(SEMICOLON, "Expect ';' after last element of a line");
         return new Stmt.Line(items);
     }
 
-    @Contract(pure = true)
-    private Stmt.@NotNull Command command(Token name) {
-        List<Expr> arguments = new ArrayList<>();
-        if (!check(SEMICOLON)) {
-            do arguments.add(expression()); while (match(COMMA));
-        }
-        consume(SEMICOLON, "Expect ';' after last argument of a command");
-        return new Stmt.Command(name, arguments);
+    @Contract("_ -> new")
+    private @NotNull Stmt exprStmt(Expr expr) {
+        consume(SEMICOLON, "Expect ';' after expression");
+        return new Stmt.ExprStmt(expr);
     }
 
     @Contract(" -> new")
     private @NotNull Expr expression() {
+        return primary();
+    }
+
+    private @NotNull Expr primary() {
+        if (match(NULL)) return new Expr.Literal(null, previous().pos());
+        if (match(NUMBER, STRING)) return new Expr.Literal(previous().literal(), previous().pos());
+        if (match(TEXT)) return new Expr.Literal(new TextParser(diagnosticCollector, previous()).parse(), previous().pos());
         if (match(IDENTIFIER)) {
-            Token identifier = previous();
-
-            Expr.Literal literal = literal();
-            if (literal != null) return new Expr.PrefixedLiteral(identifier, literal);
-
-            return new Expr.Variable(identifier);
+            Token ident = previous();
+            if (match(LPAREN)) return finishCall(ident);
+            return new Expr.Variable(ident);
         }
-
         if (match(LPAREN)) {
             Expr expr = expression();
             consume(RPAREN, "Expect ')' after expression");
             return expr;
         }
-
-        Expr.Literal literal = literal();
-        if (literal == null) throw error(peek(), "Expect expression");
-        return literal;
+        throw error(peek(), "Expect expression");
     }
 
-    @Nullable
-    private Expr.Literal literal() {
-        if (match(NULL)) return new Expr.Literal(null, previous().pos());
-        if (match(NUMBER, STRING)) return new Expr.Literal(previous().literal(), previous().pos());
-        if (match(TEXT)) return new Expr.Literal(new TextParser(diagnosticCollector, previous()).parse(), previous().pos());
-        return null;
+    @Contract("_ -> new")
+    private @NotNull Expr finishCall(Token callee) {
+        List<Expr> arguments = new ArrayList<>();
+        if (!check(RPAREN)) {
+            do {
+                if (arguments.size() >= 255) {
+                    //noinspection ThrowableNotThrown
+                    error(peek(), "Can't have more than 255 arguments");
+                }
+                arguments.add(expression());
+            } while (match(COMMA));
+        }
+        consume(RPAREN, "Expect ')' after arguments");
+        return new Expr.Call(callee, arguments);
     }
 
-    private void consume(TokenType type, String message) {
+    private Token consume(TokenType type, String message) {
         if (!check(type)) throw error(peek(), message);
-        advance();
+        return advance();
     }
 
     @Contract("_, _ -> new")
