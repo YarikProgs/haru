@@ -1,11 +1,9 @@
 package net.aros.haru.value;
 
-import net.aros.haru.ast.TextPart;
-import net.aros.haru.parse.ParsedText;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
-public sealed interface Value permits BoolValue, NullValue, NumberValue, StringValue, TextValue {
+public sealed interface Value permits BoolValue, NullValue, NumberValue, StringValue, TextRefValue {
     default boolean isNumber() {
         return false;
     }
@@ -18,7 +16,7 @@ public sealed interface Value permits BoolValue, NullValue, NumberValue, StringV
         return false;
     }
 
-    default boolean isText() {
+    default boolean isTextRef() {
         return false;
     }
 
@@ -38,11 +36,7 @@ public sealed interface Value permits BoolValue, NullValue, NumberValue, StringV
         throw new IllegalStateException("Not a string");
     }
 
-    default TextPart asText() {
-        throw new IllegalStateException("Not a text");
-    }
-
-    default String asRawText() {
+    default int asTextRef() {
         throw new IllegalStateException("Not a text");
     }
 
@@ -62,8 +56,8 @@ public sealed interface Value permits BoolValue, NullValue, NumberValue, StringV
     }
 
     @Contract("_ -> new")
-    static @NotNull Value text(ParsedText parsedText) {
-        return new TextValue(parsedText);
+    static @NotNull Value textRef(int index) {
+        return new TextRefValue(index);
     }
 
     static Value nullValue() {

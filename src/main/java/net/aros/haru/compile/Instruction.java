@@ -33,10 +33,10 @@ public sealed interface Instruction {
         }
     }
 
-    record Call(HaruFunction function, int argc) implements Instruction {
+    record Call(int fn, int argc) implements Instruction {
         @Override
         public void execute(AbstractDialoguePlayer player) throws DialogueException {
-            Util.checkedCall(player, function, Util.popRev(player, argc));
+            Util.checkedCall(player, fn, Util.popRev(player, argc));
         }
     }
 

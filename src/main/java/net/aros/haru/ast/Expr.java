@@ -36,7 +36,11 @@ public sealed interface Expr {
      *
      * @param value literal
      */
-    record Literal(Object value, SourcePos pos) implements Expr {
+    record Literal(Token token, Object value) implements Expr {
+        @Override
+        public SourcePos pos() {
+            return token.pos();
+        }
     }
 
     /**
@@ -53,19 +57,19 @@ public sealed interface Expr {
         }
     }
 
-    interface Visitor<T> {
-        T visitVariable(Variable expr);
+    interface Visitor {
+        void visitVariable(Variable expr);
 
-        T visitLiteral(Literal expr);
+        void visitLiteral(Literal expr);
 
-        T visitCall(Call expr);
+        void visitCall(Call expr);
 
-        default T visit(@NotNull Expr expr) {
-            return switch (expr) {
+        default void visit(@NotNull Expr expr) {
+            switch (expr) {
                 case Variable variable -> visitVariable(variable);
                 case Literal literal -> visitLiteral(literal);
                 case Call call -> visitCall(call);
-            };
+            }
         }
     }
 }

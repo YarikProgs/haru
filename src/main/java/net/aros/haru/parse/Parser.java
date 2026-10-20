@@ -90,8 +90,8 @@ public class Parser {
 
     private @NotNull Expr primary() {
         if (match(NULL)) return new Expr.Literal(null, previous().pos());
-        if (match(NUMBER, STRING)) return new Expr.Literal(previous().literal(), previous().pos());
-        if (match(TEXT)) return new Expr.Literal(new TextParser(diagnosticCollector, previous()).parse(), previous().pos());
+        if (match(NUMBER, STRING)) return new Expr.Literal(previous(), previous().literal());
+        if (match(TEXT)) return new Expr.Literal(previous(), new TextParser(diagnosticCollector, previous()).parse());
         if (match(IDENTIFIER)) {
             Token ident = previous();
             if (match(LPAREN)) return finishCall(ident);

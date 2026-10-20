@@ -72,6 +72,10 @@ public abstract class AbstractDialoguePlayer {
     }
 
     /* properties */
+    public final @NotNull CompiledProgram program() {
+        return program;
+    }
+
     public final boolean isDone() {
         return done;
     }
