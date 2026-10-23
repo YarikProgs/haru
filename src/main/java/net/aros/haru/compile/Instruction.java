@@ -85,8 +85,24 @@ public sealed interface Instruction {
         }
     }
 
+    record DoBlock(int target) implements Instruction {
+        @Override
+        public void execute(@NotNull AbstractDialoguePlayer player) throws DialogueException {
+            player.enterBlock(target);
+        }
+    }
+
+    record Return() implements Instruction {
+        public static final Return INSTANCE = new Return();
+
+        @Override
+        public void execute(@NotNull AbstractDialoguePlayer player) throws DialogueException {
+            player.leaveBlock();
+        }
+    }
+
     enum Opcode {
-        LINE, PARALLEL_LINES, PUSH_CONST, CALL, POP, LOAD, STORE, JUMP, JUMP_IF_FALSE, END;
+        LINE, PARALLEL_LINES, PUSH_CONST, CALL, POP, LOAD, STORE, JUMP, JUMP_IF_FALSE, END, DO_BLOCK, RETURN;
 
         public byte id() {
             return (byte) ordinal();

@@ -21,6 +21,9 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
     private final Map<String, Integer> slots = new HashMap<>();
     private final Map<String, Integer> functionSlots = new HashMap<>();
     private final List<String> literals = new ArrayList<>();
+    private final List<Stmt.NamedBlock> pendingBlocks = new ArrayList<>();
+    private final Map<String, Integer> blockAddresses = new HashMap<>();
+    private final List<DoSite> doSites = new ArrayList<>();
     private final TranslationMerger translationMerger;
     private int textCount = 0;
     private boolean compilationFailed = false;
@@ -57,6 +60,7 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
             visit(stmt);
         }
         emit(Instruction.End.INSTANCE);
+        patchBlocksAndDos();
         if (compilationFailed) return null;
         return new CompiledProgram(
                 instructions.toArray(Instruction[]::new),
@@ -65,6 +69,23 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
                 Map.copyOf(slots),
                 Map.copyOf(functionSlots)
         );
+    }
+
+    private void patchBlocksAndDos() {
+        for (Stmt.NamedBlock pendingBlock : pendingBlocks) {
+            blockAddresses.put(pendingBlock.name().lexeme(), instructions.size());
+            compileBlock(pendingBlock.block());
+            emit(Instruction.Return.INSTANCE);
+        }
+        for (DoSite site : doSites) {
+            Integer target = blockAddresses.get(site.name().lexeme());
+            if (target == null) {
+                diagnosticCollector.error("Unknown block: '" + site.name().lexeme() + "'", site.name().pos());
+                compilationFailed = true;
+                continue;
+            }
+            instructions.set(site.index(), new Instruction.DoBlock(target));
+        }
     }
 
     private int addTextPart(@NotNull ParsedText text) {
@@ -117,6 +138,23 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
     @Override
     public void visitEnd(Stmt.End stmt) {
         emit(Instruction.End.INSTANCE);
+    }
+
+    @Override
+    public void visitNamedBlock(Stmt.@NotNull NamedBlock stmt) {
+        String name = stmt.name().lexeme();
+        if (pendingBlocks.stream().anyMatch(b -> b.name().lexeme().equals(name))) {
+            diagnosticCollector.error("Block '" + name + "' already defined", stmt.name().pos());
+            compilationFailed = true;
+            return;
+        }
+        pendingBlocks.add(stmt);
+    }
+
+    @Override
+    public void visitDo(Stmt.@NotNull Do stmt) {
+        emit(new Instruction.DoBlock(-1));
+        doSites.add(new DoSite(instructions.size() - 1, stmt.namedBlock()));
     }
 
     @Override
@@ -205,4 +243,6 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
     private void emit(Instruction instruction) {
         instructions.add(instruction);
     }
+
+    private record DoSite(int index, Token name) {}
 }

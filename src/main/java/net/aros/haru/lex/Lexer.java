@@ -18,7 +18,9 @@ public class Lexer {
             "false", FALSE,
             "if", IF,
             "elif", ELIF,
-            "else", ELSE
+            "else", ELSE,
+            "do", DO,
+            "parallel", PARALLEL
     );
     private static final Set<TokenType> STMT_END_TOKENS = Set.of(
             IDENTIFIER, NUMBER, STRING, TEXT, NULL, COMMA, RPAREN

@@ -11,6 +11,6 @@ public record RuntimeDiagnostic(
 ) {
     public enum ErrorCode {
         EXTRA_EXTERNAL_VARIABLES,
-        FUNCTION_EXCEPTION
+        CALL_DEPTH_EXCEEDED, FUNCTION_EXCEPTION
     }
 }

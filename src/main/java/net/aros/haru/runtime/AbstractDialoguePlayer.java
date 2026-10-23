@@ -2,6 +2,7 @@ package net.aros.haru.runtime;
 
 import net.aros.haru.compile.Instruction;
 import net.aros.haru.link.LinkedProgram;
+import net.aros.haru.runtime.RuntimeDiagnostic.ErrorCode;
 import net.aros.haru.value.Value;
 import org.jetbrains.annotations.NotNull;
 
@@ -11,8 +12,10 @@ import java.util.Deque;
 import java.util.Map;
 
 public abstract class AbstractDialoguePlayer {
+    private static final int MAX_CALL_DEPTH = 1024;
     private final LinkedProgram program;
     private final Deque<Value> stack = new ArrayDeque<>();
+    private final Deque<Integer> callStack = new ArrayDeque<>();
     private final Value[] slots;
     private int ip;
     private boolean done, suspended;
@@ -57,6 +60,17 @@ public abstract class AbstractDialoguePlayer {
     /* flow */
     public final void jump(int target) {
         ip = target;
+    }
+
+    public final void enterBlock(int target) throws DialogueException {
+        if (callStack.size() >= MAX_CALL_DEPTH)
+            Util.error(ErrorCode.CALL_DEPTH_EXCEEDED, "Block call depth exceeded (recursion?)");
+        callStack.push(ip);
+        ip = target;
+    }
+
+    public final void leaveBlock() {
+        ip = callStack.pop();
     }
 
     public final void suspend() {

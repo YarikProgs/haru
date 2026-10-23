@@ -82,6 +82,20 @@ public sealed interface Stmt {
         }
     }
 
+    record NamedBlock(Token name, Block block) implements Stmt {
+        @Override
+        public SourcePos pos() {
+            return name.pos();
+        }
+    }
+
+    record Do(Token namedBlock) implements Stmt {
+        @Override
+        public SourcePos pos() {
+            return namedBlock.pos();
+        }
+    }
+
     record If(Token ifToken, Expr cond, Block then, @Nullable Block orElse) implements Stmt {
         @Override
         public SourcePos pos() {
@@ -103,6 +117,10 @@ public sealed interface Stmt {
 
         void visitEnd(End stmt);
 
+        void visitNamedBlock(NamedBlock stmt);
+
+        void visitDo(Do stmt);
+
         void visitIf(If stmt);
 
         default void visit(@NotNull Stmt stmt) {
@@ -112,6 +130,8 @@ public sealed interface Stmt {
                 case Declaration decl -> visitDeclaration(decl);
                 case ExprStmt exprStmt -> visitExprStmt(exprStmt);
                 case End end -> visitEnd(end);
+                case NamedBlock nb -> visitNamedBlock(nb);
+                case Do doStmt -> visitDo(doStmt);
                 case If ifStmt -> visitIf(ifStmt);
             }
         }

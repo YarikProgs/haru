@@ -61,7 +61,12 @@ public class InstructionIO {
                 dos.writeByte(Instruction.Opcode.JUMP_IF_FALSE.id());
                 dos.writeInt(target);
             }
-            case Instruction.End() -> dos.writeByte(9);
+            case Instruction.End() -> dos.writeByte(Instruction.Opcode.END.id());
+            case Instruction.DoBlock(int target) -> {
+                dos.writeByte(Instruction.Opcode.DO_BLOCK.id());
+                dos.writeInt(target);
+            }
+            case Instruction.Return() -> dos.writeByte(Instruction.Opcode.RETURN.id());
         }
     }
 
@@ -78,6 +83,8 @@ public class InstructionIO {
             case JUMP -> new Instruction.Jump(dis.readInt());
             case JUMP_IF_FALSE -> new Instruction.JumpIfFalse(dis.readInt());
             case END -> Instruction.End.INSTANCE;
+            case DO_BLOCK -> new Instruction.DoBlock(dis.readInt());
+            case RETURN -> Instruction.Return.INSTANCE;
         };
     }
 }

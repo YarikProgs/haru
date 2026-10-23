@@ -31,7 +31,7 @@ public class Parser {
         List<Stmt> statements = new ArrayList<>();
         while (!isAtEnd()) {
             try {
-                statements.add(statement());
+                statements.add(namedBlockOrStatement());
             } catch (ParseError ignored) {
                 synchronize();
             }
@@ -39,14 +39,32 @@ public class Parser {
         return new Program(statements);
     }
 
+    private Stmt namedBlockOrStatement() {
+        if (match(IDENTIFIER)) {
+            Token ident = previous();
+            if (check(LBRACE)) return new Stmt.NamedBlock(ident, block());
+            return exprStmt(new Expr.Variable(ident));
+        }
+        return statement();
+    }
+
     private Stmt statement() {
         if (match(LET)) return declaration();
+        if (match(DO)) return doBlock();
         if (match(IF)) return ifStmt();
         if (match(LBRACE)) return system();
         if (match(END)) return new Stmt.End(previous());
+
         Expr expr = expression();
         if (check(COMMA)) return line(expr);
         return exprStmt(expr);
+    }
+
+    @Contract(" -> new")
+    private @NotNull Stmt doBlock() {
+        Token ident = consume(IDENTIFIER, "Expect name of block after 'do'");
+        consume(SEMICOLON, "Expect ';' after block name");
+        return new Stmt.Do(ident);
     }
 
     @Contract(" -> new")
