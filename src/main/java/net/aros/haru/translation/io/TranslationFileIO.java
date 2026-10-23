@@ -1,10 +1,11 @@
-package net.aros.haru.translation;
+package net.aros.haru.translation.io;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.JsonOps;
+import net.aros.haru.translation.TranslationFile;
 
 import java.io.*;
 

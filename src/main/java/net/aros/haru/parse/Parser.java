@@ -41,6 +41,7 @@ public class Parser {
 
     private Stmt statement() {
         if (match(LET)) return declaration();
+        if (match(IF)) return ifStmt();
         if (match(LBRACE)) return system();
         if (match(END)) return new Stmt.End(previous());
         Expr expr = expression();
@@ -48,12 +49,32 @@ public class Parser {
         return exprStmt(expr);
     }
 
-    private Stmt declaration() {
+    @Contract(" -> new")
+    private @NotNull Stmt declaration() {
         Token name = consume(IDENTIFIER, "Expect variable name after 'let'");
         consume(EQUAL, "Expect '=' after variable name");
         var expr = expression();
         consume(SEMICOLON, "Expect ';' after expression");
         return new Stmt.Declaration(name, expr);
+    }
+
+    @Contract(" -> new")
+    private @NotNull Stmt ifStmt() {
+        Token tok = previous();
+        Expr cond = expression();
+        Stmt.Block then = block();
+        Stmt.Block orElse = match(ELIF) ? new Stmt.Block(List.of(ifStmt())) : match(ELSE) ? block() : null;
+        return new Stmt.If(tok, cond, then, orElse);
+    }
+
+    private Stmt.@NotNull Block block() {
+        consume(LBRACE, "Expect '{'");
+        Stmt.Block block = new Stmt.Block(new ArrayList<>());
+        while (!check(RBRACE) && !isAtEnd()) {
+            block.stmts().add(statement());
+        }
+        consume(RBRACE, "Expect '}'");
+        return block;
     }
 
     @Contract(" -> new")

@@ -3,6 +3,7 @@ package net.aros.haru.ast;
 import net.aros.haru.lex.SourcePos;
 import net.aros.haru.lex.Token;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
@@ -81,6 +82,16 @@ public sealed interface Stmt {
         }
     }
 
+    record If(Token ifToken, Expr cond, Block then, @Nullable Block orElse) implements Stmt {
+        @Override
+        public SourcePos pos() {
+            return ifToken.pos();
+        }
+    }
+
+    record Block(List<Stmt> stmts) {
+    }
+
     interface Visitor {
         void visitLine(Line stmt);
 
@@ -92,6 +103,8 @@ public sealed interface Stmt {
 
         void visitEnd(End stmt);
 
+        void visitIf(If stmt);
+
         default void visit(@NotNull Stmt stmt) {
             switch (stmt) {
                 case Line line -> visitLine(line);
@@ -99,6 +112,7 @@ public sealed interface Stmt {
                 case Declaration decl -> visitDeclaration(decl);
                 case ExprStmt exprStmt -> visitExprStmt(exprStmt);
                 case End end -> visitEnd(end);
+                case If ifStmt -> visitIf(ifStmt);
             }
         }
     }

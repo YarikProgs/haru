@@ -9,7 +9,7 @@ import net.aros.haru.link.LinkedProgram;
 import net.aros.haru.runtime.AbstractDialoguePlayer;
 import net.aros.haru.runtime.DialogueException;
 import net.aros.haru.translation.TranslationFile;
-import net.aros.haru.translation.TranslationFileIO;
+import net.aros.haru.translation.io.TranslationFileIO;
 import net.aros.haru.value.Value;
 import org.jetbrains.annotations.NotNull;
 import picocli.CommandLine;
@@ -199,13 +199,13 @@ public class HaruCli implements Callable<Integer> {
         }
 
         @Override
-        public void onLine(Value[] args) {
+        public void onSingleLine(Value[] args) {
             System.out.println("Line: " + render(args));
             resume();
         }
 
         @Override
-        public void onLines(Value[][] args) {
+        public void onMultipleLines(Value[][] args) {
             System.out.println("Parallel(");
             for (Value[] arg : args) {
                 System.out.println("* Line: " + render(arg));

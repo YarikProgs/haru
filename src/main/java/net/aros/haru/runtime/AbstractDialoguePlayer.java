@@ -1,6 +1,5 @@
 package net.aros.haru.runtime;
 
-import net.aros.haru.compile.CompiledProgram;
 import net.aros.haru.compile.Instruction;
 import net.aros.haru.link.LinkedProgram;
 import net.aros.haru.value.Value;
@@ -33,9 +32,9 @@ public abstract class AbstractDialoguePlayer {
         instruction.execute(this);
     }
 
-    public abstract void onLine(Value[] args);
+    public abstract void onSingleLine(Value[] args);
 
-    public abstract void onLines(Value[][] args);
+    public abstract void onMultipleLines(Value[][] args);
 
     /* stack */
     public final Value pop() {
@@ -72,7 +71,7 @@ public abstract class AbstractDialoguePlayer {
         done = true;
     }
 
-    /* properties */
+    /* getters */
     public final @NotNull LinkedProgram program() {
         return program;
     }

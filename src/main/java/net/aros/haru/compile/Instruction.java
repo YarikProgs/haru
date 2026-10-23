@@ -13,7 +13,7 @@ public sealed interface Instruction {
         @Override
         public void execute(@NotNull AbstractDialoguePlayer player) {
             player.suspend();
-            player.onLine(Util.popRev(player, argc));
+            player.onSingleLine(Util.popRev(player, argc));
         }
     }
 
@@ -21,7 +21,7 @@ public sealed interface Instruction {
         @Override
         public void execute(@NotNull AbstractDialoguePlayer player) {
             player.suspend();
-            player.onLines(Util.popRev(player, argcs));
+            player.onMultipleLines(Util.popRev(player, argcs));
         }
     }
 

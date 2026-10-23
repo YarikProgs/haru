@@ -15,7 +15,10 @@ public class Lexer {
             "null", NULL,
             "let", LET,
             "true", TRUE,
-            "false", FALSE
+            "false", FALSE,
+            "if", IF,
+            "elif", ELIF,
+            "else", ELSE
     );
     private static final Set<TokenType> STMT_END_TOKENS = Set.of(
             IDENTIFIER, NUMBER, STRING, TEXT, NULL, COMMA, RPAREN
@@ -64,6 +67,7 @@ public class Lexer {
             case ';' -> addToken(SEMICOLON);
             case ':' -> addToken(COLON);
             case '{' -> addToken(LBRACE);
+            case '}' -> addToken(RBRACE);
             case ')' -> {
                 addToken(RPAREN);
                 if (parenDepth > 0) parenDepth--;

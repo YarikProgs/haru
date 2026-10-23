@@ -5,11 +5,11 @@ public enum TokenType {
     NUMBER, STRING, TEXT, IDENTIFIER,
 
     // Keywords
-    NULL, LET, END, TRUE, FALSE,
+    NULL, LET, END, TRUE, FALSE, IF, ELIF, ELSE,
 
     // Symbols
     EQUAL, COMMA, COLON, SEMICOLON,
-    LBRACE, ARROW, LPAREN, RPAREN,
+    LBRACE, RBRACE, ARROW, LPAREN, RPAREN,
 
     // Special
     EOF, ERROR

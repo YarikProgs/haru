@@ -166,6 +166,42 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
         emit(new Instruction.Store(slot));
     }
 
+    @Override
+    public void visitIf(Stmt.@NotNull If stmt) {
+        visit(stmt.cond());
+        int jumpToElse = emitJump(new Instruction.JumpIfFalse(-1));
+        compileBlock(stmt.then());
+
+        if (stmt.orElse() == null) {
+            patchJump(jumpToElse);
+        } else {
+            int jumpToEnd = emitJump(new Instruction.Jump(-1));
+            patchJump(jumpToElse);
+            compileBlock(stmt.orElse());
+            patchJump(jumpToEnd);
+        }
+    }
+
+    private void compileBlock(Stmt.@NotNull Block block) {
+        for (Stmt stmt : block.stmts()) {
+            visit(stmt);
+        }
+    }
+
+    private int emitJump(Instruction jump) {
+        emit(jump);
+        return instructions.size() - 1;
+    }
+
+    private void patchJump(int index) {
+        int target = instructions.size();
+        instructions.set(index, switch (instructions.get(index)) {
+            case Instruction.Jump ignored -> new Instruction.Jump(target);
+            case Instruction.JumpIfFalse ignored -> new Instruction.JumpIfFalse(target);
+            default -> throw new IllegalStateException("Not a jump at " + index);
+        });
+    }
+
     private void emit(Instruction instruction) {
         instructions.add(instruction);
     }
