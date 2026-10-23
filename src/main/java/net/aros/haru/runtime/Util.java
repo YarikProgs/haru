@@ -12,12 +12,12 @@ import java.util.Map;
 import java.util.Set;
 
 public class Util {
-    public static void checkedCall(AbstractDialoguePlayer player, int fn, Value[] args) throws DialogueException {
+    public static void checkedCall(@NotNull AbstractDialoguePlayer player, int fn, Value[] args) throws DialogueException {
         HaruFunction function = player.program().functions()[fn];
 
         Value val = Value.nullValue();
         try {
-            val = function.dispatchCall(args);
+            val = function.call(player, args);
         } catch (Exception e) {
             Util.error(RuntimeDiagnostic.ErrorCode.FUNCTION_EXCEPTION, "Unexpected exception", e);
         }

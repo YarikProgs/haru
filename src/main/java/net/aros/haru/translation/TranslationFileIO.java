@@ -22,7 +22,6 @@ public class TranslationFileIO {
 
     public static void exportFile(TranslationFile file, OutputStream outputStream) throws IOException {
         JsonElement result = TranslationFile.CODEC.encodeStart(JsonOps.INSTANCE, file).getOrThrow();
-//        GSON.toJson(result, new OutputStreamWriter(outputStream));
         String text = GSON.toJson(result);
         var writer = new OutputStreamWriter(outputStream);
         writer.write(text);

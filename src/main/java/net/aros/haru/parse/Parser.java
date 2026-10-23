@@ -1,5 +1,6 @@
 package net.aros.haru.parse;
 
+import net.aros.haru.Haru;
 import net.aros.haru.ast.Expr;
 import net.aros.haru.ast.Program;
 import net.aros.haru.ast.Stmt;
@@ -8,7 +9,6 @@ import net.aros.haru.lex.Token;
 import net.aros.haru.lex.TokenType;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -89,9 +89,11 @@ public class Parser {
     }
 
     private @NotNull Expr primary() {
-        if (match(NULL)) return new Expr.Literal(null, previous().pos());
+        if (match(NULL)) return new Expr.Literal(previous(), null);
+        if (match(TRUE)) return new Expr.Literal(previous(), true);
+        if (match(FALSE)) return new Expr.Literal(previous(), false);
         if (match(NUMBER, STRING)) return new Expr.Literal(previous(), previous().literal());
-        if (match(TEXT)) return new Expr.Literal(previous(), new TextParser(diagnosticCollector, previous()).parse());
+        if (match(TEXT)) return new Expr.Literal(previous(), Haru.parseText(previous(), diagnosticCollector));
         if (match(IDENTIFIER)) {
             Token ident = previous();
             if (match(LPAREN)) return finishCall(ident);

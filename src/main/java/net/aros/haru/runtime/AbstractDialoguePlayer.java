@@ -2,6 +2,7 @@ package net.aros.haru.runtime;
 
 import net.aros.haru.compile.CompiledProgram;
 import net.aros.haru.compile.Instruction;
+import net.aros.haru.link.LinkedProgram;
 import net.aros.haru.value.Value;
 import org.jetbrains.annotations.NotNull;
 
@@ -11,24 +12,24 @@ import java.util.Deque;
 import java.util.Map;
 
 public abstract class AbstractDialoguePlayer {
-    private final CompiledProgram program;
+    private final LinkedProgram program;
     private final Deque<Value> stack = new ArrayDeque<>();
     private final Value[] slots;
     private int ip;
     private boolean done, suspended;
 
-    public AbstractDialoguePlayer(@NotNull CompiledProgram program, Map<String, Value> externalVariables) throws DialogueException {
+    public AbstractDialoguePlayer(@NotNull LinkedProgram program, Map<String, Value> externalVariables) throws DialogueException {
         this.program = program;
-        this.slots = new Value[program.slots().size()];
+        this.slots = new Value[program.program().slots().size()];
         Arrays.fill(slots, Value.nullValue());
-        Util.checkSlots(program, externalVariables);
-        Util.mergeSlots(program, slots, externalVariables);
+        Util.checkSlots(program.program(), externalVariables);
+        Util.mergeSlots(program.program(), slots, externalVariables);
     }
 
     public final void update() throws DialogueException {
         if (done || suspended) return;
 
-        Instruction instruction = program.instructions()[ip++];
+        Instruction instruction = program.program().instructions()[ip++];
         instruction.execute(this);
     }
 
@@ -72,7 +73,7 @@ public abstract class AbstractDialoguePlayer {
     }
 
     /* properties */
-    public final @NotNull CompiledProgram program() {
+    public final @NotNull LinkedProgram program() {
         return program;
     }
 

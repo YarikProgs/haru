@@ -34,7 +34,8 @@ public class TextParser {
     }
 
     public @NotNull ParsedText parse() {
-        if (source.isEmpty()) return new ParsedText(source, new TextPart.Literal(""));
+        if (source.isEmpty())
+            return new ParsedText(source, new TextPart.Literal(""));
 
         while (!isAtEnd()) {
             mark();
@@ -356,7 +357,8 @@ public class TextParser {
         UNTERMINATED
     }
 
-    private record OpenTag(String tag, List<String> arguments, List<TextPart> inner, StringBuilder literal, int line, int column) {
+    private record OpenTag(String tag, List<String> arguments, List<TextPart> inner, StringBuilder literal, int line,
+                           int column) {
         OpenTag(String tag, List<String> arguments, int line, int column) {
             this(tag, arguments, new ArrayList<>(), new StringBuilder(), line, column);
         }

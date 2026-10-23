@@ -3,7 +3,6 @@ package net.aros.haru.compile;
 import net.aros.haru.runtime.AbstractDialoguePlayer;
 import net.aros.haru.runtime.DialogueException;
 import net.aros.haru.runtime.Util;
-import net.aros.haru.value.HaruFunction;
 import net.aros.haru.value.Value;
 import org.jetbrains.annotations.NotNull;
 
@@ -83,6 +82,14 @@ public sealed interface Instruction {
         @Override
         public void execute(@NotNull AbstractDialoguePlayer player) {
             player.terminate();
+        }
+    }
+
+    enum Opcode {
+        LINE, PARALLEL_LINES, PUSH_CONST, CALL, POP, LOAD, STORE, JUMP, JUMP_IF_FALSE, END;
+
+        public byte id() {
+            return (byte) ordinal();
         }
     }
 }

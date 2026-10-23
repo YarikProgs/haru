@@ -5,7 +5,7 @@ public enum TokenType {
     NUMBER, STRING, TEXT, IDENTIFIER,
 
     // Keywords
-    NULL, LET, END,
+    NULL, LET, END, TRUE, FALSE,
 
     // Symbols
     EQUAL, COMMA, COLON, SEMICOLON,

@@ -13,7 +13,9 @@ import static net.aros.haru.lex.TokenType.*;
 public class Lexer {
     private static final Map<String, TokenType> KEYWORDS = Map.of(
             "null", NULL,
-            "let", LET
+            "let", LET,
+            "true", TRUE,
+            "false", FALSE
     );
     private static final Set<TokenType> STMT_END_TOKENS = Set.of(
             IDENTIFIER, NUMBER, STRING, TEXT, NULL, COMMA, RPAREN
@@ -23,7 +25,8 @@ public class Lexer {
     private final DiagnosticCollector diagnosticCollector;
     private final String source;
     private int start, current, line = 1, column = 1;
-    private boolean canInsertSemicolon = false;
+    private boolean canInsertSemicolon;
+    private int parenDepth;
 
     public Lexer(DiagnosticCollector diagnosticCollector, String source) {
         this.diagnosticCollector = diagnosticCollector;
@@ -61,8 +64,14 @@ public class Lexer {
             case ';' -> addToken(SEMICOLON);
             case ':' -> addToken(COLON);
             case '{' -> addToken(LBRACE);
-            case ')' -> addToken(RPAREN);
-            case '(' -> addToken(LPAREN);
+            case ')' -> {
+                addToken(RPAREN);
+                if (parenDepth > 0) parenDepth--;
+            }
+            case '(' -> {
+                addToken(LPAREN);
+                parenDepth++;
+            }
             case '#' -> consumeComment();
             case '-' -> {
                 if (match('>'))
@@ -79,7 +88,7 @@ public class Lexer {
                     unknownToken();
             }
             case '\n' -> {
-                if (canInsertSemicolon) addToken(SEMICOLON);
+                if (canInsertSemicolon && parenDepth == 0) addToken(SEMICOLON);
                 newline();
             }
             case '\'' -> string(true);

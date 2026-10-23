@@ -8,23 +8,20 @@ import net.aros.haru.lex.Token;
 import net.aros.haru.parse.ParsedText;
 import net.aros.haru.translation.TranslationFile;
 import net.aros.haru.translation.TranslationMerger;
-import net.aros.haru.value.HaruFunction;
 import net.aros.haru.value.Value;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
-//TODO: 'end.'
 public class Compiler implements Expr.Visitor, Stmt.Visitor {
     private final List<Instruction> instructions = new ArrayList<>();
     private final DiagnosticCollector diagnosticCollector;
     private final Program program;
     private final Map<String, Integer> slots = new HashMap<>();
-    private final List<HaruFunction> functions = new ArrayList<>();
     private final Map<String, Integer> functionSlots = new HashMap<>();
+    private final List<String> literals = new ArrayList<>();
     private final TranslationMerger translationMerger;
-    private int slot = 0;
     private int textCount = 0;
     private boolean compilationFailed = false;
 
@@ -43,20 +40,14 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
         return this;
     }
 
-    public Compiler declareFunction(String name, HaruFunction function) {
-        functions.add(function);
-        functionSlots.put(name, functions.size() - 1);
+    public Compiler declareExternal(String name) {
+        slots.put(name, slots.size());
         return this;
     }
 
-    public Compiler declareExternalVariable(String name) {
-        slots.put(name, slot++);
-        return this;
-    }
-
-    public Compiler declareExternalVariables(Collection<String> variables) {
+    public Compiler declareExternalAll(@NotNull Collection<String> variables) {
         for (String variable : variables) {
-            declareExternalVariable(variable);
+            declareExternal(variable);
         }
         return this;
     }
@@ -69,24 +60,24 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
         if (compilationFailed) return null;
         return new CompiledProgram(
                 instructions.toArray(Instruction[]::new),
-                functions.toArray(HaruFunction[]::new),
                 translationMerger.merge(),
-                Map.copyOf(slots)
+                literals.toArray(String[]::new),
+                Map.copyOf(slots),
+                Map.copyOf(functionSlots)
         );
     }
 
-    /**
-     * Index of the phrase: the position of its text in the result.
-     * <p>
-     * Every text occurrence gets its own index, in source order, so {@code textParts[i]}
-     * always corresponds to the i-th entry of the resulting translation file - even if
-     * the same phrase is used several times in the source.
-     *
-     * @return index of the text
-     */
     private int addTextPart(@NotNull ParsedText text) {
         translationMerger.addText(text);
         return textCount++;
+    }
+
+    private int addLiteral(String s) {
+        if (literals.contains(s))
+            return literals.indexOf(s);
+        int index = literals.size();
+        literals.add(s);
+        return index;
     }
 
     @Override
@@ -103,8 +94,9 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
     @Override
     public void visitLiteral(Expr.@NotNull Literal expr) {
         Value value = switch (expr.value()) {
+            case Boolean b -> Value.bool(b);
             case Double d -> Value.number(d);
-            case String s -> Value.string(s);
+            case String s -> Value.literalRef(addLiteral(s));
             case ParsedText text -> Value.textRef(addTextPart(text));
             case null -> Value.nullValue();
             default -> throw new IllegalArgumentException("Unknown literal type: " + expr.value().getClass());
@@ -133,12 +125,8 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
             visit(arg);
         }
         Token callee = expr.callee();
-        if (!functionSlots.containsKey(callee.lexeme())) {
-            diagnosticCollector.error("Unknown function: '" + callee.lexeme() + "'", callee.pos());
-            compilationFailed = true;
-            return;
-        }
-        emit(new Instruction.Call(functionSlots.get(callee.lexeme()), expr.args().size()));
+        int slot = functionSlots.computeIfAbsent(callee.lexeme(), ignored -> functionSlots.size());
+        emit(new Instruction.Call(slot, expr.args().size()));
     }
 
     @Override
@@ -173,8 +161,7 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
             compilationFailed = true;
             return;
         }
-        int slot = this.slot++;
-        slots.put(name, slot);
+        int slot = slots.computeIfAbsent(name, ignored -> slots.size());
         visit(stmt.value());
         emit(new Instruction.Store(slot));
     }

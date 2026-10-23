@@ -7,8 +7,9 @@ import java.util.Map;
 
 public record CompiledProgram(
         Instruction[] instructions,
-        HaruFunction[] functions,
         TranslationFile translationFile,
-        Map<String, Integer> slots
+        String[] literals,
+        Map<String, Integer> slots,
+        Map<String, Integer> functionSlots
 ) {
 }
