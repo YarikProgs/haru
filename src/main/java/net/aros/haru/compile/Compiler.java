@@ -179,7 +179,7 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
     public void visitSystem(Stmt.@NotNull System stmt) {
         if (stmt.lines().size() == 1) {
             diagnosticCollector.warn("System with single line", stmt.pos());
-            diagnosticCollector.hint("Consider replacing system with line (remove the '{')", stmt.pos());
+            diagnosticCollector.hint("Consider replacing system with line (remove 'parallel' and block)", stmt.pos());
         }
 
         int[] argcs = new int[stmt.lines().size()];

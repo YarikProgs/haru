@@ -52,7 +52,7 @@ public class Parser {
         if (match(LET)) return declaration();
         if (match(DO)) return doBlock();
         if (match(IF)) return ifStmt();
-        if (match(LBRACE)) return system();
+        if (match(PARALLEL)) return system();
         if (match(END)) return new Stmt.End(previous());
 
         Expr expr = expression();
@@ -97,10 +97,12 @@ public class Parser {
 
     @Contract(" -> new")
     private @NotNull Stmt system() {
+        consume(LBRACE, "Expect '{' after 'parallel'");
         List<Stmt.Line> lines = new ArrayList<>();
         do {
             lines.add(line(expression()));
-        } while (match(LBRACE));
+        } while (!check(RBRACE) && !isAtEnd());
+        consume(RBRACE, "Expect '}' after lines");
         return new Stmt.System(lines);
     }
 
