@@ -43,6 +43,7 @@ public class Parser {
         if (match(IDENTIFIER)) {
             Token ident = previous();
             if (check(LBRACE)) return new Stmt.NamedBlock(ident, block());
+            if (check(COMMA)) return line(new Expr.Variable(ident));
             return exprStmt(new Expr.Variable(ident));
         }
         return statement();
