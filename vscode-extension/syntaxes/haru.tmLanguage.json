@@ -1,0 +1,96 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Haru",
+  "scopeName": "source.haru",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#texts" },
+    { "include": "#numbers" },
+    { "include": "#keywords" },
+    { "include": "#constants" },
+    { "include": "#blocks" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        { "name": "comment.line.double-slash.haru", "match": "//.*$" },
+        { "name": "comment.block.haru", "begin": "/\\*", "end": "\\*/" }
+      ]
+    },
+    "texts": {
+      "name": "string.quoted.double.haru",
+      "begin": "\"",
+      "end": "\"",
+      "beginCaptures": { "0": { "name": "punctuation.definition.text.begin.haru" } },
+      "endCaptures": { "0": { "name": "punctuation.definition.text.end.haru" } },
+      "patterns": [
+        { "include": "#text-escape" },
+        { "include": "#text-placeholder" },
+        { "include": "#text-tag" }
+      ]
+    },
+    "text-escape": {
+      "name": "constant.character.escape.haru",
+      "match": "\\\\."
+    },
+    "text-placeholder": {
+      "name": "meta.interpolation.haru",
+      "begin": "\\{",
+      "end": "\\}",
+      "beginCaptures": { "0": { "name": "punctuation.section.interpolation.begin.haru" } },
+      "endCaptures":   { "0": { "name": "punctuation.section.interpolation.end.haru" } },
+      "patterns": [
+        { "match": "[A-Za-z_$][A-Za-z0-9_$]*", "name": "variable.other.haru" }
+      ]
+    },
+    "text-tag": {
+      "name": "meta.tag.haru",
+      "begin": "(</?)([$A-Za-z_][\\w.-]*)",
+      "end": "(/?)(>)|(?=\")",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.haru" },
+        "2": { "name": "entity.name.tag.haru" }
+      },
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.tag.haru" },
+        "2": { "name": "punctuation.definition.tag.haru" }
+      },
+      "patterns": [
+        { "match": "[^\\s/>\"{]+", "name": "entity.other.attribute-name.haru" }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.single.haru",
+      "begin": "'",
+      "end": "'",
+      "patterns": [
+        { "name": "constant.character.escape.haru", "match": "\\\\." }
+      ]
+    },
+    "numbers": {
+      "name": "constant.numeric.haru",
+      "match": "\\b\\d+(\\.\\d+)?\\b"
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.haru",
+          "match": "\\b(if|elif|else|do|parallel)\\b"
+        },
+        {
+          "name": "keyword.declaration.haru",
+          "match": "\\b(let)\\b"
+        }
+      ]
+    },
+    "constants": {
+      "name": "constant.language.haru",
+      "match": "\\b(true|false|null)\\b"
+    },
+    "blocks": {
+      "match": "\\b([A-Za-z_$][A-Za-z0-9_$]*)\\s*\\{",
+      "captures": { "1": { "name": "entity.name.block.haru" } }
+    }
+  }
+}

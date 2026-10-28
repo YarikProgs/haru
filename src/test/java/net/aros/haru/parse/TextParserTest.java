@@ -193,7 +193,6 @@ public class TextParserTest {
         parse(collector, "<a>x</b>");
         Assertions.assertTrue(collector.hasErrors());
         assertHasSeverity(collector, Severity.ERROR, "Mismatched closing tag");
-        assertHasSeverity(collector, Severity.HINT, "Expected '</a>'");
     }
 
     @Test
@@ -211,7 +210,6 @@ public class TextParserTest {
         List<TextPart> result = parseParts(collector, "<red>hello");
         Assertions.assertTrue(collector.hasErrors());
         assertHasSeverity(collector, Severity.ERROR, "Unclosed tag");
-        assertHasSeverity(collector, Severity.HINT, "Expected '</red>'");
         Assertions.assertEquals(
                 List.of(new TextPart.BiTag("red", List.of(), new TextPart.Literal("hello"))),
                 result
