@@ -17,7 +17,7 @@ import java.util.Map;
 public class TranslationMergerTest {
     private static ParsedText parse(String source) {
         Token token = new Token(TokenType.TEXT, SourceSpan.dot(1, 1), "\"" + source + "\"", source);
-        return new TextParser(new DiagnosticCollector(), token).parse();
+        return new TextParser(new DiagnosticCollector(), null, token).parse();
     }
 
     private static TranslationFile merge(@Nullable TranslationFile oldFile, List<String> locales, String... texts) {

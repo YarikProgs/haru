@@ -14,7 +14,7 @@ import java.util.List;
 public class TextParserTest {
     private static TextPart parse(DiagnosticCollector collector, String source) {
         Token token = new Token(TokenType.TEXT, SourceSpan.dot(1, 1), "\"" + source + "\"", source);
-        return new TextParser(collector, token).parse().text();
+        return new TextParser(collector, null, token).parse().text();
     }
 
     private static List<TextPart> parseParts(DiagnosticCollector collector, String source) {
@@ -104,7 +104,7 @@ public class TextParserTest {
         parse(collector, "a {b");
         Assertions.assertTrue(collector.hasErrors());
         Assertions.assertEquals(1, collector.diagnostics().getFirst().span().start().line());
-        Assertions.assertEquals(3, collector.diagnostics().getFirst().span().start().column());
+        Assertions.assertEquals(4, collector.diagnostics().getFirst().span().start().column());
     }
 
     @Test

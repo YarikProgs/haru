@@ -30,13 +30,15 @@ public class Lexer {
 
     private final List<Token> tokens = new ArrayList<>();
     private final DiagnosticCollector diagnosticCollector;
+    private final IdentifierCollector identifierCollector;
     private final String source;
     private int start, current, line = 1, column = 1;
     private boolean canInsertSemicolon;
     private int parenDepth;
 
-    public Lexer(DiagnosticCollector diagnosticCollector, String source) {
+    public Lexer(DiagnosticCollector diagnosticCollector, @Nullable IdentifierCollector identifierCollector, String source) {
         this.diagnosticCollector = diagnosticCollector;
+        this.identifierCollector = identifierCollector;
         this.source = source;
     }
 
@@ -222,13 +224,17 @@ public class Lexer {
     private void addToken(TokenType type, @Nullable Object literal) {
         String text = source.substring(start, current);
         int len = current - start;
+        SourceSpan span = SourceSpan.selection(line, column - len, len);
         tokens.add(new Token(
                 type,
-                SourceSpan.selection(line, column - len, len),
+                span,
                 text,
                 literal
         ));
         canInsertSemicolon = STMT_END_TOKENS.contains(type);
+
+        if (identifierCollector != null && type == IDENTIFIER)
+            identifierCollector.add(text, span);
     }
 
     private boolean match(char c) {

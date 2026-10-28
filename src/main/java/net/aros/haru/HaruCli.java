@@ -6,6 +6,7 @@ import net.aros.haru.compile.io.ProgramIO;
 import net.aros.haru.diagnostic.Diagnostic;
 import net.aros.haru.diagnostic.DiagnosticCollector;
 import net.aros.haru.diagnostic.DiagnosticRenderer;
+import net.aros.haru.lex.IdentifierCollector;
 import net.aros.haru.link.LinkedProgram;
 import net.aros.haru.runtime.AbstractDialoguePlayer;
 import net.aros.haru.runtime.DialogueException;
@@ -182,12 +183,16 @@ public class HaruCli implements Callable<Integer> {
     }
 
     private Optional<CompiledProgram> compile(String source, DiagnosticCollector diagnosticCollector, TranslationFile translationFile) {
-        return Haru.compile(
+        var ic = new IdentifierCollector();
+        Optional<CompiledProgram> compile = Haru.compile(
                 source,
                 diagnosticCollector,
+                ic,
                 compiler -> compiler.withLocales(locales).declareExternalAll(externalVariables),
                 translationFile
         );
+        System.out.println(ic.occurrencesOf("aros"));
+        return compile;
     }
 
     private Optional<TranslationFile> importTranslationFile() {

@@ -5,7 +5,9 @@ import net.aros.haru.diagnostic.DiagnosticCollector;
 import net.aros.haru.diagnostic.Severity;
 import net.aros.haru.diagnostic.SourcePos;
 import net.aros.haru.diagnostic.SourceSpan;
+import net.aros.haru.lex.IdentifierCollector;
 import org.eclipse.lsp4j.*;
+import org.eclipse.lsp4j.jsonrpc.messages.Either3;
 import org.eclipse.lsp4j.services.LanguageClient;
 import org.eclipse.lsp4j.services.TextDocumentService;
 import org.jetbrains.annotations.Contract;
@@ -14,9 +16,14 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.UnaryOperator;
 
 public class HaruTextDocumentService implements TextDocumentService {
+    private final Map<String, IdentifierCollector> identifierCollectors = new ConcurrentHashMap<>();
     private LanguageClient client;
 
     public void connect(LanguageClient client) {
@@ -38,6 +45,7 @@ public class HaruTextDocumentService implements TextDocumentService {
     @Override
     public void didClose(@NotNull DidCloseTextDocumentParams params) {
         client.publishDiagnostics(new PublishDiagnosticsParams(params.getTextDocument().getUri(), List.of()));
+        identifierCollectors.remove(params.getTextDocument().getUri());
     }
 
     @Override
@@ -47,24 +55,64 @@ public class HaruTextDocumentService implements TextDocumentService {
 
     private void validate(String uri, String text) {
         DiagnosticCollector diagnosticCollector = new DiagnosticCollector();
-        Haru.compile(text, diagnosticCollector, UnaryOperator.identity(), null);
+        IdentifierCollector identifierCollector = new IdentifierCollector();
+        Haru.compile(
+                text,
+                diagnosticCollector,
+                identifierCollector,
+                UnaryOperator.identity(),
+                null
+        );
 
-        client.publishDiagnostics(new PublishDiagnosticsParams(uri, toLsp4j(diagnosticCollector.diagnostics(), text)));
+        identifierCollectors.put(uri, identifierCollector);
+        client.publishDiagnostics(new PublishDiagnosticsParams(uri, toLsp4j(diagnosticCollector.diagnostics())));
     }
 
-    private @NotNull List<Diagnostic> toLsp4j(@NotNull List<net.aros.haru.diagnostic.Diagnostic> diagnostics, String source) {
+    @Override
+    public CompletableFuture<Either3<Range, PrepareRenameResult, PrepareRenameDefaultBehavior>> prepareRename(
+            PrepareRenameParams params) {
+        int line = params.getPosition().getLine() + 1;
+        int column = params.getPosition().getCharacter() + 1;
+        return CompletableFuture.completedFuture(
+                findOccurrenceInAt(params.getTextDocument().getUri(), line, column)
+                        .map(oc -> Either3.<Range, PrepareRenameResult, PrepareRenameDefaultBehavior>forFirst(toLsp4j(oc.at())))
+                        .orElse(null)
+        );
+    }
+
+    @Override
+    public CompletableFuture<WorkspaceEdit> rename(RenameParams params) {
+        int line = params.getPosition().getLine() + 1;
+        int column = params.getPosition().getCharacter() + 1;
+        return CompletableFuture.completedFuture(
+                findOccurrenceInAt(params.getTextDocument().getUri(), line, column)
+                        .map(oc -> oc.all().stream().map(span -> new TextEdit(toLsp4j(span), params.getNewName())).toList())
+                        .map(edits -> new WorkspaceEdit(Map.of(params.getTextDocument().getUri(), edits)))
+                        .orElse(null)
+        );
+    }
+
+    private Optional<IdentifierCollector.Occurrence> findOccurrenceInAt(String uri, int line, int column) {
+        var identifierCollector = identifierCollectors.get(uri);
+        if (identifierCollector == null)
+            return Optional.empty();
+
+        return Optional.ofNullable(identifierCollector.occurrenceAt(line, column));
+    }
+
+    private @NotNull List<Diagnostic> toLsp4j(@NotNull List<net.aros.haru.diagnostic.Diagnostic> diagnostics) {
         List<Diagnostic> transformed = new ArrayList<>();
         for (net.aros.haru.diagnostic.Diagnostic diagnostic : diagnostics) {
-            var newDiagnostic = toLsp4j(diagnostic, source);
+            var newDiagnostic = toLsp4j(diagnostic);
             if (newDiagnostic != null) transformed.add(newDiagnostic);
         }
         return transformed;
     }
 
-    private @Nullable Diagnostic toLsp4j(net.aros.haru.diagnostic.@NotNull Diagnostic diagnostic, String source) {
+    private @Nullable Diagnostic toLsp4j(net.aros.haru.diagnostic.@NotNull Diagnostic diagnostic) {
         Range range = toLsp4j(diagnostic.span());
         if (range == null) return null;
-        return new Diagnostic(range, diagnostic.message(), toLsp4j(diagnostic.severity()), source);
+        return new Diagnostic(range, diagnostic.message(), toLsp4j(diagnostic.severity()), "haru");
     }
 
     @Contract(pure = true)

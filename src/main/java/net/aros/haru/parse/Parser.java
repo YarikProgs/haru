@@ -5,10 +5,12 @@ import net.aros.haru.ast.Expr;
 import net.aros.haru.ast.Program;
 import net.aros.haru.ast.Stmt;
 import net.aros.haru.diagnostic.DiagnosticCollector;
+import net.aros.haru.lex.IdentifierCollector;
 import net.aros.haru.lex.Token;
 import net.aros.haru.lex.TokenType;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -19,10 +21,12 @@ import static net.aros.haru.lex.TokenType.*;
 public class Parser {
     private final DiagnosticCollector diagnosticCollector;
     private final List<Token> tokens;
+    private final IdentifierCollector identifierCollector;
     private int current;
 
-    public Parser(DiagnosticCollector diagnosticCollector, List<Token> tokens) {
+    public Parser(DiagnosticCollector diagnosticCollector, @Nullable IdentifierCollector identifierCollector, List<Token> tokens) {
         this.diagnosticCollector = diagnosticCollector;
+        this.identifierCollector = identifierCollector;
         this.tokens = tokens;
     }
 
@@ -138,7 +142,7 @@ public class Parser {
         if (match(TRUE)) return new Expr.Literal(previous(), true);
         if (match(FALSE)) return new Expr.Literal(previous(), false);
         if (match(NUMBER, STRING)) return new Expr.Literal(previous(), previous().literal());
-        if (match(TEXT)) return new Expr.Literal(previous(), Haru.parseText(previous(), diagnosticCollector));
+        if (match(TEXT)) return new Expr.Literal(previous(), Haru.parseText(previous(), diagnosticCollector, identifierCollector));
         if (match(IDENTIFIER)) {
             Token ident = previous();
             if (match(LPAREN)) return finishCall(ident);

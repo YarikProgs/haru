@@ -208,7 +208,7 @@ public final class TranslationMerger {
     private static String signatureOf(@NotNull String raw) {
         // Old entries store only the raw text, so it is parsed again the same way TextParserTest does it
         Token token = new Token(TokenType.TEXT, SourceSpan.dot(1, 1), "\"" + raw + "\"", raw);
-        return signature(new TextParser(new DiagnosticCollector(), token).parse().text());
+        return signature(new TextParser(new DiagnosticCollector(), null, token).parse().text());
     }
 
     private static String signature(@NotNull TextPart part) {

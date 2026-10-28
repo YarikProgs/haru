@@ -1,9 +1,6 @@
 package net.aros.haru.ls;
 
-import org.eclipse.lsp4j.InitializeParams;
-import org.eclipse.lsp4j.InitializeResult;
-import org.eclipse.lsp4j.ServerCapabilities;
-import org.eclipse.lsp4j.TextDocumentSyncKind;
+import org.eclipse.lsp4j.*;
 import org.eclipse.lsp4j.services.*;
 
 import java.util.concurrent.CompletableFuture;
@@ -17,6 +14,9 @@ public class HaruLanguageServer implements LanguageServer, LanguageClientAware {
     public CompletableFuture<InitializeResult> initialize(InitializeParams params) {
         ServerCapabilities capabilities = new ServerCapabilities();
         capabilities.setTextDocumentSync(TextDocumentSyncKind.Full);
+        RenameOptions renameOptions = new RenameOptions();
+        renameOptions.setPrepareProvider(true);
+        capabilities.setRenameProvider(renameOptions);
         return CompletableFuture.completedFuture(new InitializeResult(capabilities));
     }
 
