@@ -3,7 +3,6 @@ package net.aros.haru.parse;
 import net.aros.haru.ast.TextPart;
 import net.aros.haru.diagnostic.DiagnosticCollector;
 import net.aros.haru.diagnostic.Severity;
-import net.aros.haru.lex.SourcePos;
 import net.aros.haru.lex.Token;
 import net.aros.haru.lex.TokenType;
 import org.junit.jupiter.api.Assertions;
@@ -103,8 +102,8 @@ public class TextParserTest {
         DiagnosticCollector collector = new DiagnosticCollector();
         parse(collector, "a {b");
         Assertions.assertTrue(collector.hasErrors());
-        Assertions.assertEquals(1, collector.diagnostics().getFirst().pos().line());
-        Assertions.assertEquals(3, collector.diagnostics().getFirst().pos().column());
+        Assertions.assertEquals(1, collector.diagnostics().getFirst().span().line());
+        Assertions.assertEquals(3, collector.diagnostics().getFirst().span().column());
     }
 
     @Test

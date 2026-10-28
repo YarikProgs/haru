@@ -5,6 +5,7 @@ import net.aros.haru.compile.Instruction;
 import net.aros.haru.compile.io.ProgramIO;
 import net.aros.haru.diagnostic.Diagnostic;
 import net.aros.haru.diagnostic.DiagnosticCollector;
+import net.aros.haru.diagnostic.DiagnosticRenderer;
 import net.aros.haru.link.LinkedProgram;
 import net.aros.haru.runtime.AbstractDialoguePlayer;
 import net.aros.haru.runtime.DialogueException;
@@ -49,6 +50,9 @@ public class HaruCli implements Callable<Integer> {
 
     @CommandLine.Option(names = {"-i", "--show-instructions"}, description = "Show instructions on compilation. Default: no")
     private boolean showInstructions;
+
+    @CommandLine.Option(names = {"-f", "--force"}, description = "Always recompile even if fresh binary is present. Default: no")
+    private boolean force;
 
     @CommandLine.Option(arity = "0..", names = {"-l", "--locale"}, description = "Add locale into translation file")
     private List<String> locales;
@@ -137,12 +141,15 @@ public class HaruCli implements Callable<Integer> {
 
     private int compileFile() throws IOException {
         DiagnosticCollector diagnosticCollector = new DiagnosticCollector();
-        int status = compileOrImport(Files.readString(path), diagnosticCollector);
-        printDiagnostics(diagnosticCollector.diagnostics());
+        String source = Files.readString(path);
+        int status = compileOrImport(source, diagnosticCollector);
+//        printDiagnostics(diagnosticCollector.diagnostics());
+        System.out.println(DiagnosticRenderer.render(diagnosticCollector.diagnostics(), path, source));
         return status;
     }
 
     private Optional<CompiledProgram> importProgram(String source, TranslationFile translationFile, DiagnosticCollector diagnosticCollector) {
+        if (force) return Optional.empty();
         if (!Files.exists(outputPath))
             return Optional.empty();
         try (InputStream bis = Files.newInputStream(outputPath)) {
@@ -247,15 +254,15 @@ public class HaruCli implements Callable<Integer> {
         }
     }
 
-    private void printDiagnostics(@NotNull List<Diagnostic> diagnostics) {
-        for (Diagnostic diagnostic : diagnostics) {
-            StringBuilder msg = new StringBuilder();
-            msg.append("[").append(diagnostic.severity()).append("] ").append(path.toString());
-            if (diagnostic.pos() != null) {
-                msg.append(":").append(diagnostic.pos().line()).append(":").append(diagnostic.pos().column());
-            }
-            msg.append(": ").append(diagnostic.message());
-            System.err.println(msg);
-        }
-    }
+//    private void printDiagnostics(@NotNull List<Diagnostic> diagnostics) {
+//        for (Diagnostic diagnostic : diagnostics) {
+//            StringBuilder msg = new StringBuilder();
+//            msg.append("[").append(diagnostic.severity()).append("] ").append(path.toString());
+//            if (diagnostic.span() != null) {
+//                msg.append(":").append(diagnostic.span().line()).append(":").append(diagnostic.span().column());
+//            }
+//            msg.append(": ").append(diagnostic.message());
+//            System.err.println(msg);
+//        }
+//    }
 }

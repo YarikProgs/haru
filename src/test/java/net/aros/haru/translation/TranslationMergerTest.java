@@ -1,7 +1,6 @@
 package net.aros.haru.translation;
 
 import net.aros.haru.diagnostic.DiagnosticCollector;
-import net.aros.haru.lex.SourcePos;
 import net.aros.haru.lex.Token;
 import net.aros.haru.lex.TokenType;
 import net.aros.haru.parse.ParsedText;

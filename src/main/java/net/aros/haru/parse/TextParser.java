@@ -2,7 +2,7 @@ package net.aros.haru.parse;
 
 import net.aros.haru.ast.TextPart;
 import net.aros.haru.diagnostic.DiagnosticCollector;
-import net.aros.haru.lex.SourcePos;
+import net.aros.haru.diagnostic.SourceSpan;
 import net.aros.haru.lex.Token;
 import net.aros.haru.lex.TokenType;
 import org.jetbrains.annotations.NotNull;
@@ -29,8 +29,8 @@ public class TextParser {
             throw new IllegalArgumentException("Expected text (double-quoted string), got: '" + source.lexeme() + "'");
         }
         this.source = (String) source.literal();
-        this.line = source.pos().line();
-        this.column = source.pos().column();
+        this.line = source.span().start().line();
+        this.column = source.span().start().column();
     }
 
     public @NotNull ParsedText parse() {
@@ -80,9 +80,9 @@ public class TextParser {
 
     private void recoverInvalidPlaceholder(String raw, String name) {
         if (name.isEmpty()) {
-            diagnosticCollector.error("Empty placeholder '{}'", startPos());
+            diagnosticCollector.error("Empty placeholder '{}'", spanDotAtStart());
         } else {
-            diagnosticCollector.error("Invalid placeholder name '{" + raw + "}'", startPos());
+            diagnosticCollector.error("Invalid placeholder name '{" + raw + "}'", spanDotAtStart());
         }
         currentLiteral().append('{').append(raw).append('}');
     }
@@ -91,11 +91,11 @@ public class TextParser {
         String raw = source.substring(start, current);
         String name = raw.trim();
         if (!isValidName(name)) {
-            diagnosticCollector.error("Unterminated placeholder", startPos());
+            diagnosticCollector.error("Unterminated placeholder", spanDotAtStart());
             currentLiteral().append('{').append(raw);
             return;
         }
-        diagnosticCollector.error("Unterminated placeholder '{" + name + "', expected '}'", startPos());
+        diagnosticCollector.error("Unterminated placeholder '{" + name + "', expected '}'", spanDotAtStart());
         flushLiteral();
         currentParts().add(new TextPart.Placeholder(name));
     }
@@ -106,7 +106,7 @@ public class TextParser {
             return;
         }
         if (isAtEnd() || !isAlpha(peek())) {
-            diagnosticCollector.error("Invalid tag syntax, expected tag name after '<'", startPos());
+            diagnosticCollector.error("Invalid tag syntax, expected tag name after '<'", spanDotAtStart());
             currentLiteral().append('<');
             return;
         }
@@ -128,7 +128,7 @@ public class TextParser {
         while (true) {
             skipWhitespace();
             if (isAtEnd()) {
-                diagnosticCollector.error("Unterminated tag '<" + name + ">', expected '>' or '/>'", startPos());
+                diagnosticCollector.error("Unterminated tag '<" + name + ">', expected '>' or '/>'", spanDotAtStart());
                 return TagEnd.UNTERMINATED;
             }
             TagEnd end = tagEndChar(name, arguments);
@@ -147,7 +147,7 @@ public class TextParser {
             scanArgument(arguments);
             return null;
         }
-        diagnosticCollector.error("Invalid character '" + c + "' in tag '<" + name + ">'", currentPos());
+        diagnosticCollector.error("Invalid character '" + c + "' in tag '<" + name + ">'", spanDotAtCurrent());
         advance();
         return null;
     }
@@ -156,7 +156,7 @@ public class TextParser {
         advance(); // /
         skipWhitespace();
         if (match('>')) return TagEnd.SELF_CLOSE;
-        diagnosticCollector.error("Expected '>' after '/' in tag '<" + name + ">'", currentPos());
+        diagnosticCollector.error("Expected '>' after '/' in tag '<" + name + ">'", spanDotAtCurrent());
         return null;
     }
 
@@ -175,23 +175,23 @@ public class TextParser {
     }
 
     private void recoverInvalidClose() {
-        diagnosticCollector.error("Invalid closing tag, expected tag name after '</'", startPos());
+        diagnosticCollector.error("Invalid closing tag, expected tag name after '</'", spanDotAtStart());
         currentLiteral().append("</");
     }
 
     private void recoverUnterminatedClose(String name) {
         if (isAtEnd()) {
-            diagnosticCollector.error("Unterminated closing tag '</" + name + ">', expected '>'", startPos());
+            diagnosticCollector.error("Unterminated closing tag '</" + name + ">', expected '>'", spanDotAtStart());
             return;
         }
-        diagnosticCollector.error("Invalid closing tag '</" + name + ">', expected '>'", startPos());
+        diagnosticCollector.error("Invalid closing tag '</" + name + ">', expected '>'", spanDotAtStart());
         skipUntil('>');
         if (!isAtEnd()) advance(); // >
     }
 
     private void processClose(String name) {
         if (stack.isEmpty()) {
-            diagnosticCollector.error("Unexpected closing tag '</" + name + ">'", startPos());
+            diagnosticCollector.error("Unexpected closing tag '</" + name + ">'", spanDotAtStart());
             return;
         }
         OpenTag top = stack.peek();
@@ -205,7 +205,7 @@ public class TextParser {
     }
 
     private void reportMismatch(String found, String expected) {
-        diagnosticCollector.error("Mismatched closing tag '</" + found + ">', expected '</" + expected + ">'", startPos());
+        diagnosticCollector.error("Mismatched closing tag '</" + found + ">', expected '</" + expected + ">'", spanDotAtStart());
     }
 
     private void closeUnclosed() {
@@ -285,12 +285,12 @@ public class TextParser {
         startColumn = column;
     }
 
-    private SourcePos startPos() {
-        return new SourcePos(startLine, startColumn);
+    private SourceSpan spanDotAtStart() {
+        return SourceSpan.dot(startLine, startColumn);
     }
 
-    private SourcePos currentPos() {
-        return new SourcePos(line, column);
+    private SourceSpan spanDotAtCurrent() {
+        return SourceSpan.dot(line, column);
     }
 
     private boolean isValidName(String name) {
@@ -363,8 +363,8 @@ public class TextParser {
             this(tag, arguments, new ArrayList<>(), new StringBuilder(), line, column);
         }
 
-        SourcePos pos() {
-            return new SourcePos(line, column);
+        SourceSpan pos() {
+            return SourceSpan.dot(line, column);
         }
     }
 }

@@ -8,6 +8,7 @@
   "categories": ["Programming Languages"],
   "activationEvents": ["onLanguage:haru"],
   "main": "./out/extension.js",
+  "repository": "https://github.com/YarikProgs/haru",
   "contributes": {
     "languages": [
       {

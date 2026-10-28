@@ -2,7 +2,7 @@ package net.aros.haru.translation;
 
 import net.aros.haru.ast.TextPart;
 import net.aros.haru.diagnostic.DiagnosticCollector;
-import net.aros.haru.lex.SourcePos;
+import net.aros.haru.diagnostic.SourceSpan;
 import net.aros.haru.lex.Token;
 import net.aros.haru.lex.TokenType;
 import net.aros.haru.parse.ParsedText;
@@ -207,7 +207,7 @@ public final class TranslationMerger {
      */
     private static String signatureOf(@NotNull String raw) {
         // Old entries store only the raw text, so it is parsed again the same way TextParserTest does it
-        Token token = new Token(TokenType.TEXT, new SourcePos(1, 1), "\"" + raw + "\"", raw);
+        Token token = new Token(TokenType.TEXT, SourceSpan.dot(1, 1), "\"" + raw + "\"", raw);
         return signature(new TextParser(new DiagnosticCollector(), token).parse().text());
     }
 

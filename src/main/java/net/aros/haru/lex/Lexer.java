@@ -1,6 +1,8 @@
 package net.aros.haru.lex;
 
 import net.aros.haru.diagnostic.DiagnosticCollector;
+import net.aros.haru.diagnostic.SourcePos;
+import net.aros.haru.diagnostic.SourceSpan;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -47,7 +49,7 @@ public class Lexer {
             start = current;
             addToken(SEMICOLON);
         }
-        tokens.add(new Token(EOF, new SourcePos(line, column), "", null));
+        tokens.add(new Token(EOF, SourceSpan.dot(line, column), "", null));
         return tokens;
     }
 
@@ -95,7 +97,6 @@ public class Lexer {
             }
             case '\n' -> {
                 if (canInsertSemicolon && parenDepth == 0) addToken(SEMICOLON);
-                newline();
             }
             case '\'' -> string(true);
             case '"' -> string(false);
@@ -106,7 +107,8 @@ public class Lexer {
     }
 
     private void unknownToken() {
-        diagnosticCollector.error("Unknown token: " + source.substring(start, current), new SourcePos(line, column - current + start));
+        int len = current - start;
+        diagnosticCollector.error("Unknown token: " + source.substring(start, current), SourceSpan.selection(line, column - len, len));
     }
 
     private void number() {
@@ -129,17 +131,18 @@ public class Lexer {
     }
 
     private void consumeMultilineComment() {
-        while (peek() != '*' && peekNext() != '/') {
-            if (isAtEnd()) {
-                var pos = new SourcePos(line, column);
-                diagnosticCollector.error("Unterminated comment.", pos);
-                diagnosticCollector.error("Add */ to terminate the comment", pos);
+        SourcePos start = new SourcePos(line, column - 2);
+        while (!isAtEnd()) {
+            if (peek() == '*' && peekNext() == '/') {
+                advance();
+                advance();
                 return;
             }
-            if (advance() == '\n') newline();
+            advance();
         }
-        advance(); // *
-        advance(); // /
+        var span = new SourceSpan(start, new SourcePos(line, column));
+        diagnosticCollector.error("Unterminated comment.", span);
+        diagnosticCollector.hint("Add */ to terminate the comment", SourceSpan.dot(line, column + 1));
     }
 
     private void newline() {
@@ -157,13 +160,13 @@ public class Lexer {
             advance();
         }
         if (peek() == '\n' || isAtEnd()) {
-            var pos = new SourcePos(line, column - current + start);
-            diagnosticCollector.error("Unterminated string", pos);
-            diagnosticCollector.hint("Add closing '" + quote + "' to terminate the string", pos);
+            int len = current - start;
+            var span = SourceSpan.selection(line, column - len, len);
+            diagnosticCollector.error("Unterminated string", span);
+            diagnosticCollector.hint("Add closing '" + quote + "' to terminate the string", SourceSpan.dot(line, column + 1));
             addString(literal, true);
             return;
-        }
-        else advance(); // " '
+        } else advance(); // " '
         addString(literal, false);
     }
 
@@ -185,9 +188,9 @@ public class Lexer {
             }
 
             if (++i >= string.length()) {
-                var pos = new SourcePos(line, columnStart + i - 1);
-                diagnosticCollector.error("Dangling backslash", pos);
-                diagnosticCollector.hint("Use \\\\ for a literal backslash", pos);
+                var span = SourceSpan.dot(line, columnStart + i - 1);
+                diagnosticCollector.error("Dangling backslash", span);
+                diagnosticCollector.hint("Use \\\\ for a literal backslash", span);
                 break;
             }
             char e = string.charAt(i);
@@ -203,7 +206,7 @@ public class Lexer {
                 case '0' -> sb.append('\0');
                 // TODO: \ uXXXX
                 default -> {
-                    var pos = new SourcePos(line, columnStart + i - 1);
+                    var pos = SourceSpan.dot(line, columnStart + i - 1);
                     diagnosticCollector.error("Unknown escape '\\" + e + "'", pos);
                     diagnosticCollector.hint("Use \\\\ for a literal backslash", pos);
                 }
@@ -218,7 +221,13 @@ public class Lexer {
 
     private void addToken(TokenType type, @Nullable Object literal) {
         String text = source.substring(start, current);
-        tokens.add(new Token(type, new SourcePos(line, column - current + start), text, literal));
+        int len = current - start;
+        tokens.add(new Token(
+                type,
+                SourceSpan.selection(line, column - len, len),
+                text,
+                literal
+        ));
         canInsertSemicolon = STMT_END_TOKENS.contains(type);
     }
 
@@ -232,8 +241,10 @@ public class Lexer {
 
     private char advance() {
         if (isAtEnd()) return '\0';
-        column++;
-        return source.charAt(current++);
+        char c = source.charAt(current++);
+        if (c == '\n') newline();
+        else column++;
+        return c;
     }
 
     private char peekNext() {

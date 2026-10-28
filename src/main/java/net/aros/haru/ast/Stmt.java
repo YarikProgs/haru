@@ -1,7 +1,9 @@
 package net.aros.haru.ast;
 
-import net.aros.haru.lex.SourcePos;
+import net.aros.haru.diagnostic.SourcePos;
+import net.aros.haru.diagnostic.SourceSpan;
 import net.aros.haru.lex.Token;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -11,7 +13,7 @@ import java.util.List;
  * Statements
  */
 public sealed interface Stmt {
-    SourcePos pos();
+    SourceSpan span();
 
     /**
      * A statement that represents a line
@@ -21,10 +23,11 @@ public sealed interface Stmt {
      * @param items items inside the line
      */
     record Line(List<Expr> items) implements Stmt {
+        @Contract(" -> new")
         @Override
-        public SourcePos pos() {
+        public @NotNull SourceSpan span() {
             if (items.isEmpty()) throw new IllegalArgumentException("Illegal line with no items");
-            return items.getFirst().pos();
+            return new SourceSpan(items.getFirst().span().start(), items.getLast().span().end());
         }
     }
 
@@ -33,26 +36,27 @@ public sealed interface Stmt {
      *
      * @param lines lines that will be shown parallel
      */
-    record System(List<Line> lines) implements Stmt {
+    record System(Token parallel, List<Line> lines, Token rbrace) implements Stmt {
         @Override
-        public SourcePos pos() {
-            if (lines.isEmpty()) throw new IllegalArgumentException("Illegal system with no lines");
-            return lines.getFirst().pos();
+        public SourceSpan span() {
+            if (lines.isEmpty()) throw new IllegalArgumentException("System with no lines");
+            return new SourceSpan(parallel.span().start(), rbrace.span().end());
         }
     }
 
     /**
      * A statement that represents a declaration
      * <p>
-     * Examples: {@code a = 20}, {@code importance = 100}
+     * Examples: {@code let a = 20}, {@code let importance = 100}
      *
      * @param name  name of the variable
      * @param value constant of the variable
      */
-    record Declaration(Token name, Expr value) implements Stmt {
+    record Declaration(Token let, Token name, Expr value) implements Stmt {
+        @Contract(" -> new")
         @Override
-        public SourcePos pos() {
-            return name.pos();
+        public @NotNull SourceSpan span() {
+            return new SourceSpan(let.span().start(), value.span().end());
         }
     }
 
@@ -60,12 +64,13 @@ public sealed interface Stmt {
      * A statement that represents an expression
      * <p>
      * Examples: {@code 3}, {@code wait(2)}
+     *
      * @param expr expression
      */
     record ExprStmt(Expr expr) implements Stmt {
         @Override
-        public SourcePos pos() {
-            return expr.pos();
+        public SourceSpan span() {
+            return expr.span();
         }
     }
 
@@ -73,37 +78,49 @@ public sealed interface Stmt {
      * A statement that represents the end of dialogue (terminator)
      * <p>
      * Examples: {@code end.}
+     *
      * @param token 'end.' token
      */
     record End(Token token) implements Stmt {
         @Override
-        public SourcePos pos() {
-            return token.pos();
+        public SourceSpan span() {
+            return token.span();
         }
     }
 
     record NamedBlock(Token name, Block block) implements Stmt {
+        @Contract(" -> new")
         @Override
-        public SourcePos pos() {
-            return name.pos();
+        public @NotNull SourceSpan span() {
+            return new SourceSpan(name.span().start(), block.span().end());
         }
     }
 
     record Do(Token namedBlock) implements Stmt {
         @Override
-        public SourcePos pos() {
-            return namedBlock.pos();
+        public SourceSpan span() {
+            return namedBlock.span();
         }
     }
 
     record If(Token ifToken, Expr cond, Block then, @Nullable Block orElse) implements Stmt {
         @Override
-        public SourcePos pos() {
-            return ifToken.pos();
+        public @NotNull SourceSpan span() {
+            SourcePos end = orElse != null ? orElse.span().end() : then.span().end();
+            return new SourceSpan(ifToken.span().start(), end);
         }
     }
 
-    record Block(List<Stmt> stmts) {
+    record Block(Token lbrace, List<Stmt> stmts, Token rbrace) {
+        @Contract(" -> new")
+        public @NotNull SourceSpan span() {
+            if (lbrace == null || rbrace == null) {
+                if (stmts.isEmpty()) throw new IllegalStateException("Synthetic block with no statement");
+                return stmts.getFirst().span();
+            }
+
+            return new SourceSpan(lbrace.span().start(), rbrace.span().end());
+        }
     }
 
     interface Visitor {

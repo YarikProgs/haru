@@ -1,6 +1,6 @@
 package net.aros.haru.ast;
 
-import net.aros.haru.lex.SourcePos;
+import net.aros.haru.diagnostic.SourceSpan;
 import net.aros.haru.lex.Token;
 import org.jetbrains.annotations.NotNull;
 
@@ -11,9 +11,14 @@ import java.util.List;
  * */
 public sealed interface Expr {
     /**
-     * @return position of expression in source file
+     * @return start+end positions of the expression in source file
      */
-    SourcePos pos();
+    SourceSpan span();
+
+    /**
+     * @return does expression have side effects (true if not)
+     */
+    boolean isPure();
 
     /**
      * An expression that represents a variable
@@ -24,8 +29,13 @@ public sealed interface Expr {
      */
     record Variable(Token name) implements Expr {
         @Override
-        public SourcePos pos() {
-            return name.pos();
+        public SourceSpan span() {
+            return name.span();
+        }
+
+        @Override
+        public boolean isPure() {
+            return true;
         }
     }
 
@@ -38,8 +48,13 @@ public sealed interface Expr {
      */
     record Literal(Token token, Object value) implements Expr {
         @Override
-        public SourcePos pos() {
-            return token.pos();
+        public SourceSpan span() {
+            return token.span();
+        }
+
+        @Override
+        public boolean isPure() {
+            return true;
         }
     }
 
@@ -50,10 +65,15 @@ public sealed interface Expr {
      * @param callee
      * @param args
      */
-    record Call(Token callee, List<Expr> args) implements Expr {
+    record Call(Token callee, List<Expr> args, Token rparen) implements Expr {
         @Override
-        public SourcePos pos() {
-            return callee.pos();
+        public SourceSpan span() {
+            return new SourceSpan(callee.span().start(), rparen.span().end());
+        }
+
+        @Override
+        public boolean isPure() {
+            return false;
         }
     }
 
