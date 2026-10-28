@@ -5,25 +5,28 @@ import net.aros.haru.diagnostic.SourcePos;
 import net.aros.haru.diagnostic.SourceSpan;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import static net.aros.haru.lex.TokenType.*;
 
 public class Lexer {
-    private static final Map<String, TokenType> KEYWORDS = Map.of(
-            "null", NULL,
-            "let", LET,
-            "true", TRUE,
-            "false", FALSE,
-            "if", IF,
-            "elif", ELIF,
-            "else", ELSE,
-            "do", DO,
-            "parallel", PARALLEL
-    );
+    private static final Map<String, TokenType> KEYWORDS = new HashMap<>();
+
+    static {
+        KEYWORDS.put("null", NULL);
+        KEYWORDS.put("let", LET);
+        KEYWORDS.put("true", TRUE);
+        KEYWORDS.put("false", FALSE);
+        KEYWORDS.put("if", IF);
+        KEYWORDS.put("elif", ELIF);
+        KEYWORDS.put("else", ELSE);
+        KEYWORDS.put("do", DO);
+        KEYWORDS.put("parallel", PARALLEL);
+        KEYWORDS.put("and", AND);
+        KEYWORDS.put("or", OR);
+        KEYWORDS.put("not", NOT);
+    }
+
     private static final Set<TokenType> STMT_END_TOKENS = Set.of(
             IDENTIFIER, NUMBER, STRING, TEXT, NULL, COMMA, RPAREN
     );
@@ -68,12 +71,12 @@ public class Lexer {
         }
 
         switch (c) {
-            case '=' -> addToken(EQUAL);
             case ',' -> addToken(COMMA);
             case ';' -> addToken(SEMICOLON);
             case ':' -> addToken(COLON);
             case '{' -> addToken(LBRACE);
             case '}' -> addToken(RBRACE);
+            case '*' -> addToken(STAR);
             case ')' -> {
                 addToken(RPAREN);
                 if (parenDepth > 0) parenDepth--;
@@ -82,20 +85,22 @@ public class Lexer {
                 addToken(LPAREN);
                 parenDepth++;
             }
+            case '=' -> addOtherIfMatch('=', EQUAL_EQUAL, EQUAL);
+            case '>' -> addOtherIfMatch('=', GREATER_EQUAL, GREATER);
+            case '<' -> addOtherIfMatch('=', LESS_EQUAL, LESS);
+            case '!' -> addOtherIfMatch('=', NOT_EQUAL, NOT);
+            case '-' -> addOtherIfMatch('>', ARROW, MINUS);
+            case '+' -> addToken(PLUS);
+            case '&' -> addIfMatch('&', AND);
+            case '|' -> addIfMatch('|', OR);
             case '#' -> consumeComment();
-            case '-' -> {
-                if (match('>'))
-                    addToken(ARROW);
-                else
-                    unknownToken();
-            }
             case '/' -> {
                 if (match('/'))
                     consumeComment();
                 else if (match('*'))
                     consumeMultilineComment();
                 else
-                    unknownToken();
+                    addToken(SLASH);
             }
             case '\n' -> {
                 if (canInsertSemicolon && parenDepth == 0) addToken(SEMICOLON);
@@ -106,6 +111,17 @@ public class Lexer {
             }
             default -> unknownToken();
         }
+    }
+
+    private void addOtherIfMatch(char c, TokenType thenType, TokenType elseType) {
+        addToken(match(c) ? thenType : elseType);
+    }
+
+    private void addIfMatch(char c, TokenType thenAdd) {
+        if (match(c))
+            addToken(thenAdd);
+        else
+            unknownToken();
     }
 
     private void unknownToken() {

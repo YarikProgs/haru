@@ -3,12 +3,51 @@ package net.aros.haru.value;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
-public sealed interface Value permits BoolValue, NullValue, NumberValue, LiteralRefValue, TextRefValue {
-    default boolean isNumber() {
-        return false;
+public sealed interface Value permits NullValue, NumberValue, LiteralRefValue, TextRefValue {
+    Value TRUE = number(1);
+    Value FALSE = number(0);
+
+    default Value add(Value other) {
+        throw new IllegalStateException("Cannot ADD between " + asString() + " and " + other.asString());
     }
 
-    default boolean isBool() {
+    default Value mul(Value other) {
+        throw new IllegalStateException("Cannot MUL between " + asString() + " and " + other.asString());
+    }
+
+    default Value div(Value other) {
+        throw new IllegalStateException("Cannot DIV between " + asString() + " and " + other.asString());
+    }
+
+    default Value greater(Value other) {
+        throw new IllegalStateException("Cannot GREATER between " + asString() + " and " + other.asString());
+    }
+
+    default Value less(Value other) {
+        throw new IllegalStateException("Cannot LESS between " + asString() + " and " + other.asString());
+    }
+
+    default Value and(Value second) {
+        return isFalsey() || second.isFalsey() ? FALSE : TRUE;
+    }
+
+    default Value or(Value second) {
+        return isFalsey() && isFalsey() ? FALSE : TRUE;
+    }
+
+    Value equal(Value other);
+
+    default Value negate() {
+        throw new IllegalStateException("Cannot NEGATE " + asString());
+    }
+
+    default Value invert() {
+        return isFalsey() ? TRUE : FALSE;
+    }
+
+    String asString();
+
+    default boolean isNumber() {
         return false;
     }
 
@@ -46,8 +85,8 @@ public sealed interface Value permits BoolValue, NullValue, NumberValue, Literal
     }
 
     @Contract("_ -> new")
-    static @NotNull Value bool(boolean value) {
-        return new BoolValue(value);
+    static @NotNull Value number(boolean value) {
+        return number(value ? 1 : 0);
     }
 
     @Contract("_ -> new")
@@ -65,13 +104,12 @@ public sealed interface Value permits BoolValue, NullValue, NumberValue, Literal
     }
 
     default boolean isFalsey() {
-        if (isBool()) return !asBool();
         if (isNumber()) return asNumber() == 0;
         return isNull();
     }
 
     enum Tag {
-        NUMBER, BOOL, LITERAL_REF, TEXT_REF, NULL;
+        NUMBER, LITERAL_REF, TEXT_REF, NULL;
 
         public byte id() {
             return (byte) ordinal();

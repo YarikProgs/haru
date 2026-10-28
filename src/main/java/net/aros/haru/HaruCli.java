@@ -227,14 +227,11 @@ public class HaruCli implements Callable<Integer> {
         }
 
         private String render(Value arg) {
-            if (arg.isBool()) return Boolean.toString(arg.asBool());
-            if (arg.isNull()) return "null";
-            if (arg.isNumber()) return String.valueOf(arg.asNumber());
             if (arg.isLiteralRef())
                 return program().program().literals()[arg.asLiteralRef()];
             if (arg.isTextRef())
                 return program().program().translationFile().entries().get(arg.asTextRef()).translations().get("ru_ru");
-            return arg.toString();
+            return arg.asString();
         }
 
         private String render(Value[] args) {

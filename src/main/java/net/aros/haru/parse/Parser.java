@@ -15,6 +15,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Supplier;
 
 import static net.aros.haru.lex.TokenType.*;
 
@@ -36,7 +37,7 @@ public class Parser {
         List<Stmt> statements = new ArrayList<>();
         while (!isAtEnd()) {
             try {
-                statements.add(namedBlockOrStatement());
+                statements.add(declStatement());
             } catch (ParseError ignored) {
                 synchronize();
             }
@@ -44,7 +45,8 @@ public class Parser {
         return new Program(statements);
     }
 
-    private Stmt namedBlockOrStatement() {
+    private Stmt declStatement() {
+        if (match(LET)) return declaration();
         if (match(IDENTIFIER)) {
             Token ident = previous();
             if (check(LBRACE)) return new Stmt.NamedBlock(ident, block());
@@ -55,7 +57,6 @@ public class Parser {
     }
 
     private Stmt statement() {
-        if (match(LET)) return declaration();
         if (match(DO)) return doBlock();
         if (match(IF)) return ifStmt();
         if (match(PARALLEL)) return system();
@@ -134,15 +135,49 @@ public class Parser {
 
     @Contract(" -> new")
     private @NotNull Expr expression() {
+        return or();
+    }
+
+    private Expr or() {
+        return leftAssociative(this::and, OR);
+    }
+
+    private Expr and() {
+        return leftAssociative(this::equality, AND);
+    }
+
+    private Expr equality() {
+        return leftAssociative(this::comparison, EQUAL_EQUAL, NOT_EQUAL);
+    }
+
+    private Expr comparison() {
+        return leftAssociative(this::term, LESS, LESS_EQUAL, GREATER, GREATER_EQUAL);
+    }
+
+    private Expr term() {
+        return leftAssociative(this::factor, PLUS, MINUS);
+    }
+
+    private Expr factor() {
+        return leftAssociative(this::unary, STAR, SLASH);
+    }
+
+    private @NotNull Expr unary() {
+        if (match(NOT, MINUS, PLUS)) {
+            Token op = previous();
+            Expr right = unary();
+            return new Expr.Unary(op, right);
+        }
         return primary();
     }
 
     private @NotNull Expr primary() {
         if (match(NULL)) return new Expr.Literal(previous(), null);
-        if (match(TRUE)) return new Expr.Literal(previous(), true);
-        if (match(FALSE)) return new Expr.Literal(previous(), false);
+        if (match(TRUE)) return new Expr.Literal(previous(), 1.0);
+        if (match(FALSE)) return new Expr.Literal(previous(), 0.0);
         if (match(NUMBER, STRING)) return new Expr.Literal(previous(), previous().literal());
-        if (match(TEXT)) return new Expr.Literal(previous(), Haru.parseText(previous(), diagnosticCollector, identifierCollector));
+        if (match(TEXT))
+            return new Expr.Literal(previous(), Haru.parseText(previous(), diagnosticCollector, identifierCollector));
         if (match(IDENTIFIER)) {
             Token ident = previous();
             if (match(LPAREN)) return finishCall(ident);
@@ -154,6 +189,16 @@ public class Parser {
             return expr;
         }
         throw error(peek(), "Expect expression");
+    }
+
+    private Expr leftAssociative(@NotNull Supplier<Expr> childSupplier, TokenType... ops) {
+        Expr expr = childSupplier.get();
+        while (match(ops)) {
+            Token op = previous();
+            Expr right = childSupplier.get();
+            expr = new Expr.Binary(expr, op, right);
+        }
+        return expr;
     }
 
     @Contract("_ -> new")

@@ -96,13 +96,120 @@ public sealed interface Instruction {
         public static final Return INSTANCE = new Return();
 
         @Override
-        public void execute(@NotNull AbstractDialoguePlayer player) throws DialogueException {
+        public void execute(@NotNull AbstractDialoguePlayer player) {
             player.leaveBlock();
         }
     }
 
+    record Negate() implements Instruction {
+        public static final Negate INSTANCE = new Negate();
+
+        @Override
+        public void execute(AbstractDialoguePlayer player) {
+            player.push(player.pop().negate());
+        }
+    }
+
+    record Invert() implements Instruction {
+        public static final Invert INSTANCE = new Invert();
+
+        @Override
+        public void execute(AbstractDialoguePlayer player) {
+            player.push(player.pop().invert());
+        }
+    }
+
+    record Add() implements Instruction {
+        public static final Add INSTANCE = new Add();
+
+        @Override
+        public void execute(AbstractDialoguePlayer player) {
+            Value second = player.pop();
+            Value first = player.pop();
+            player.push(first.add(second));
+        }
+    }
+
+    record Multiply() implements Instruction {
+        public static final Multiply INSTANCE = new Multiply();
+
+        @Override
+        public void execute(AbstractDialoguePlayer player) {
+            Value second = player.pop();
+            Value first = player.pop();
+            player.push(first.mul(second));
+        }
+    }
+
+    record Divide() implements Instruction {
+        public static final Divide INSTANCE = new Divide();
+
+        @Override
+        public void execute(AbstractDialoguePlayer player) {
+            Value second = player.pop();
+            Value first = player.pop();
+            player.push(first.div(second));
+        }
+    }
+
+    record Less() implements Instruction {
+        public static final Less INSTANCE = new Less();
+
+        @Override
+        public void execute(AbstractDialoguePlayer player) {
+            Value second = player.pop();
+            Value first = player.pop();
+            player.push(first.less(second));
+        }
+    }
+
+    record Greater() implements Instruction {
+        public static final Greater INSTANCE = new Greater();
+
+        @Override
+        public void execute(AbstractDialoguePlayer player) {
+            Value second = player.pop();
+            Value first = player.pop();
+            player.push(first.greater(second));
+        }
+    }
+
+    record Equal() implements Instruction {
+        public static final Equal INSTANCE = new Equal();
+
+        @Override
+        public void execute(AbstractDialoguePlayer player) {
+            Value second = player.pop();
+            Value first = player.pop();
+            player.push(first.equal(second));
+        }
+    }
+
+    record And() implements Instruction {
+        public static final And INSTANCE = new And();
+
+        @Override
+        public void execute(AbstractDialoguePlayer player) {
+            Value second = player.pop();
+            Value first = player.pop();
+            player.push(first.and(second));
+        }
+    }
+
+    record Or() implements Instruction {
+        public static final Or INSTANCE = new Or();
+
+        @Override
+        public void execute(AbstractDialoguePlayer player) {
+            Value second = player.pop();
+            Value first = player.pop();
+            player.push(first.or(second));
+        }
+    }
+
     enum Opcode {
-        LINE, PARALLEL_LINES, PUSH_CONST, CALL, POP, LOAD, STORE, JUMP, JUMP_IF_FALSE, END, DO_BLOCK, RETURN;
+        LINE, PARALLEL_LINES, PUSH_CONST, CALL, POP, LOAD, STORE, JUMP, JUMP_IF_FALSE, END,
+        DO_BLOCK, RETURN, NEGATE, INVERT, ADD, MULTIPLY, DIVIDE, LESS, GREATER, EQUAL, AND, OR;
 
         public byte id() {
             return (byte) ordinal();

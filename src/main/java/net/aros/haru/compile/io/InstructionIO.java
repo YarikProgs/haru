@@ -67,6 +67,16 @@ public class InstructionIO {
                 dos.writeInt(target);
             }
             case Instruction.Return() -> dos.writeByte(Instruction.Opcode.RETURN.id());
+            case Instruction.Negate() -> dos.writeByte(Instruction.Opcode.NEGATE.id());
+            case Instruction.Invert() -> dos.writeByte(Instruction.Opcode.INVERT.id());
+            case Instruction.Add() -> dos.writeByte(Instruction.Opcode.ADD.id());
+            case Instruction.Multiply() -> dos.writeByte(Instruction.Opcode.MULTIPLY.id());
+            case Instruction.Divide() -> dos.writeByte(Instruction.Opcode.DIVIDE.id());
+            case Instruction.Less() -> dos.writeByte(Instruction.Opcode.LESS.id());
+            case Instruction.Greater() -> dos.writeByte(Instruction.Opcode.GREATER.id());
+            case Instruction.Equal() -> dos.writeByte(Instruction.Opcode.EQUAL.id());
+            case Instruction.And() -> dos.writeByte(Instruction.Opcode.AND.id());
+            case Instruction.Or() -> dos.writeByte(Instruction.Opcode.OR.id());
         }
     }
 
@@ -85,6 +95,16 @@ public class InstructionIO {
             case END -> Instruction.End.INSTANCE;
             case DO_BLOCK -> new Instruction.DoBlock(dis.readInt());
             case RETURN -> Instruction.Return.INSTANCE;
+            case NEGATE -> Instruction.Negate.INSTANCE;
+            case INVERT -> Instruction.Invert.INSTANCE;
+            case ADD -> Instruction.Add.INSTANCE;
+            case MULTIPLY -> Instruction.Multiply.INSTANCE;
+            case DIVIDE -> Instruction.Divide.INSTANCE;
+            case LESS -> Instruction.Less.INSTANCE;
+            case GREATER -> Instruction.Greater.INSTANCE;
+            case EQUAL -> Instruction.Equal.INSTANCE;
+            case AND -> Instruction.And.INSTANCE;
+            case OR -> Instruction.Or.INSTANCE;
         };
     }
 }

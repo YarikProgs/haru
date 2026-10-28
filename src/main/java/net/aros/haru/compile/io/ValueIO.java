@@ -12,7 +12,6 @@ public class ValueIO {
         Value.Tag tag = Value.Tag.values()[dis.readByte()];
         return switch (tag) {
             case NUMBER -> Value.number(dis.readDouble());
-            case BOOL -> Value.bool(dis.readBoolean());
             case LITERAL_REF -> Value.literalRef(dis.readInt());
             case TEXT_REF -> Value.textRef(dis.readInt());
             case NULL -> Value.nullValue();
@@ -23,10 +22,6 @@ public class ValueIO {
         if (v.isNumber()) {
             dos.writeByte(Value.Tag.NUMBER.id());
             dos.writeDouble(v.asNumber());
-        }
-        else if (v.isBool()) {
-            dos.writeByte(Value.Tag.BOOL.id());
-            dos.writeBoolean(v.asBool());
         }
         else if (v.isLiteralRef()) {
             dos.writeByte(Value.Tag.LITERAL_REF.id());

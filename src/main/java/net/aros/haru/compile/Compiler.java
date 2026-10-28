@@ -6,6 +6,7 @@ import net.aros.haru.ast.Stmt;
 import net.aros.haru.diagnostic.DiagnosticCollector;
 import net.aros.haru.diagnostic.SourceSpan;
 import net.aros.haru.lex.Token;
+import net.aros.haru.lex.TokenType;
 import net.aros.haru.parse.ParsedText;
 import net.aros.haru.translation.TranslationFile;
 import net.aros.haru.translation.TranslationMerger;
@@ -116,7 +117,6 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
     @Override
     public void visitLiteral(Expr.@NotNull Literal expr) {
         Value value = switch (expr.value()) {
-            case Boolean b -> Value.bool(b);
             case Double d -> Value.number(d);
             case String s -> Value.literalRef(addLiteral(s));
             case ParsedText text -> Value.textRef(addTextPart(text));
@@ -167,6 +167,53 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
         Token callee = expr.callee();
         int slot = functionSlots.computeIfAbsent(callee.lexeme(), ignored -> functionSlots.size());
         emit(new Instruction.Call(slot, expr.args().size()));
+    }
+
+    @Override
+    public void visitBinary(Expr.@NotNull Binary expr) {
+        visit(expr.lhs());
+        visit(expr.rhs());
+
+        switch (expr.op().type()) {
+            case PLUS -> emit(Instruction.Add.INSTANCE);
+            case MINUS -> {
+                emit(Instruction.Negate.INSTANCE);
+                emit(Instruction.Add.INSTANCE);
+            }
+            case STAR -> emit(Instruction.Multiply.INSTANCE);
+            case SLASH -> emit(Instruction.Divide.INSTANCE);
+            case LESS -> emit(Instruction.Less.INSTANCE);
+            case LESS_EQUAL -> {
+                emit(Instruction.Greater.INSTANCE);
+                emit(Instruction.Invert.INSTANCE);
+            }
+            case GREATER -> emit(Instruction.Greater.INSTANCE);
+            case GREATER_EQUAL -> {
+                emit(Instruction.Less.INSTANCE);
+                emit(Instruction.Invert.INSTANCE);
+            }
+            case EQUAL_EQUAL -> emit(Instruction.Equal.INSTANCE);
+            case NOT_EQUAL -> {
+                emit(Instruction.Equal.INSTANCE);
+                emit(Instruction.Invert.INSTANCE);
+            }
+            case AND -> emit(Instruction.And.INSTANCE);
+            case OR -> emit(Instruction.Or.INSTANCE);
+            default -> throw new IllegalStateException("Unknown binary operator: " + expr.op().lexeme());
+        }
+    }
+
+    @Override
+    public void visitUnary(Expr.@NotNull Unary expr) {
+        visit(expr.rhs());
+
+        if (expr.op().type() == TokenType.PLUS) return;
+
+        emit(switch (expr.op().type()) {
+            case MINUS -> Instruction.Negate.INSTANCE;
+            case NOT -> Instruction.Invert.INSTANCE;
+            default -> throw new IllegalStateException("Unknown unary operator: " + expr.op().lexeme());
+        });
     }
 
     @Override

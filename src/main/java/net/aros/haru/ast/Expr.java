@@ -2,6 +2,7 @@ package net.aros.haru.ast;
 
 import net.aros.haru.diagnostic.SourceSpan;
 import net.aros.haru.lex.Token;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -66,14 +67,41 @@ public sealed interface Expr {
      * @param args
      */
     record Call(Token callee, List<Expr> args, Token rparen) implements Expr {
+        @Contract(" -> new")
         @Override
-        public SourceSpan span() {
+        public @NotNull SourceSpan span() {
             return new SourceSpan(callee.span().start(), rparen.span().end());
         }
 
         @Override
         public boolean isPure() {
             return false;
+        }
+    }
+
+    record Binary(Expr lhs, Token op, Expr rhs) implements Expr {
+        @Contract(" -> new")
+        @Override
+        public @NotNull SourceSpan span() {
+            return new SourceSpan(lhs.span().start(), rhs.span().end());
+        }
+
+        @Override
+        public boolean isPure() {
+            return lhs.isPure() && rhs.isPure();
+        }
+    }
+
+    record Unary(Token op, Expr rhs) implements Expr {
+        @Contract(" -> new")
+        @Override
+        public @NotNull SourceSpan span() {
+            return new SourceSpan(op.span().start(), rhs.span().end());
+        }
+
+        @Override
+        public boolean isPure() {
+            return rhs.isPure();
         }
     }
 
@@ -84,11 +112,17 @@ public sealed interface Expr {
 
         void visitCall(Call expr);
 
+        void visitBinary(Binary expr);
+
+        void visitUnary(Unary expr);
+
         default void visit(@NotNull Expr expr) {
             switch (expr) {
                 case Variable variable -> visitVariable(variable);
                 case Literal literal -> visitLiteral(literal);
                 case Call call -> visitCall(call);
+                case Binary binary -> visitBinary(binary);
+                case Unary unary -> visitUnary(unary);
             }
         }
     }

@@ -76,7 +76,7 @@
       "patterns": [
         {
           "name": "keyword.control.haru",
-          "match": "\\b(if|elif|else|do|parallel)\\b"
+          "match": "\\b(if|elif|else|do|parallel|and|or|not)\\b"
         },
         {
           "name": "keyword.declaration.haru",
