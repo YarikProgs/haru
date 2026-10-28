@@ -1,6 +1,7 @@
 package net.aros.haru.translation;
 
 import net.aros.haru.diagnostic.DiagnosticCollector;
+import net.aros.haru.diagnostic.SourceSpan;
 import net.aros.haru.lex.Token;
 import net.aros.haru.lex.TokenType;
 import net.aros.haru.parse.ParsedText;
@@ -15,7 +16,7 @@ import java.util.Map;
 
 public class TranslationMergerTest {
     private static ParsedText parse(String source) {
-        Token token = new Token(TokenType.TEXT, new SourcePos(1, 1), "\"" + source + "\"", source);
+        Token token = new Token(TokenType.TEXT, SourceSpan.dot(1, 1), "\"" + source + "\"", source);
         return new TextParser(new DiagnosticCollector(), token).parse();
     }
 
