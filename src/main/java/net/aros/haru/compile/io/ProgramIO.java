@@ -7,13 +7,11 @@ import net.aros.haru.translation.TranslationFile;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
-import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.*;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-@ParametersAreNonnullByDefault
 public class ProgramIO {
     private static final byte[] MAGIC = {(byte) 0x89, 'H', 'A', 'R', 'U', 0x0D, 0x0A, 0x1A};
     private static final short FORMAT_VERSION = 0;

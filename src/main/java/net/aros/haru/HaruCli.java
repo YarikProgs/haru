@@ -199,7 +199,7 @@ public class HaruCli implements Callable<Integer> {
         if (translationPath == null || Files.notExists(translationPath))
             return Optional.empty();
         try (var stream = Files.newInputStream(translationPath)) {
-            return TranslationFileIO.importFile(stream).result();
+            return TranslationFileIO.importFile(stream);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

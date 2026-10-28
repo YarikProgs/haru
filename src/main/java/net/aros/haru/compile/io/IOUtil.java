@@ -3,7 +3,6 @@ package net.aros.haru.compile.io;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
-import javax.annotation.ParametersAreNonnullByDefault;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -12,7 +11,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 
-@ParametersAreNonnullByDefault
 public class IOUtil {
     public static final int MAX_ARRAY_LENGTH = 4096;
     public static final String HASH_ALGO = "SHA-256";

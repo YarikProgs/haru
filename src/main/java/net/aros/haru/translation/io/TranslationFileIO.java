@@ -2,12 +2,10 @@ package net.aros.haru.translation.io;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonElement;
-import com.mojang.serialization.DataResult;
-import com.mojang.serialization.JsonOps;
 import net.aros.haru.translation.TranslationFile;
 
 import java.io.*;
+import java.util.Optional;
 
 public class TranslationFileIO {
     private static final Gson GSON = new GsonBuilder()
@@ -15,15 +13,16 @@ public class TranslationFileIO {
             .setPrettyPrinting()
             .create();
 
-    public static DataResult<TranslationFile> importFile(InputStream inputStream) {
-        JsonElement element = GSON.fromJson(new InputStreamReader(inputStream), JsonElement.class);
-        if (element == null) return DataResult.error(() -> "Failed to parse the file");
-        return TranslationFile.CODEC.parse(JsonOps.INSTANCE, element);
+    public static Optional<TranslationFile> importFile(InputStream inputStream) {
+        try {
+            return Optional.ofNullable(GSON.fromJson(new InputStreamReader(inputStream), TranslationFile.class));
+        } catch (Exception e) {
+            return Optional.empty();
+        }
     }
 
     public static void exportFile(TranslationFile file, OutputStream outputStream) throws IOException {
-        JsonElement result = TranslationFile.CODEC.encodeStart(JsonOps.INSTANCE, file).getOrThrow();
-        String text = GSON.toJson(result);
+        String text = GSON.toJson(file);
         var writer = new OutputStreamWriter(outputStream);
         writer.write(text);
         writer.flush();
