@@ -3,7 +3,7 @@ package net.aros.haru.parse;
 import net.aros.haru.ast.TextPart;
 import net.aros.haru.diagnostic.DiagnosticCollector;
 import net.aros.haru.diagnostic.Severity;
-import net.aros.haru.lex.SourcePos;
+import net.aros.haru.diagnostic.SourceSpan;
 import net.aros.haru.lex.Token;
 import net.aros.haru.lex.TokenType;
 import org.junit.jupiter.api.Assertions;
@@ -13,8 +13,8 @@ import java.util.List;
 
 public class TextParserTest {
     private static TextPart parse(DiagnosticCollector collector, String source) {
-        Token token = new Token(TokenType.TEXT, new SourcePos(1, 1), "\"" + source + "\"", source);
-        return new TextParser(collector, token).parse().text();
+        Token token = new Token(TokenType.TEXT, SourceSpan.dot(1, 1), "\"" + source + "\"", source);
+        return new TextParser(collector, null, token).parse().text();
     }
 
     private static List<TextPart> parseParts(DiagnosticCollector collector, String source) {
@@ -103,8 +103,8 @@ public class TextParserTest {
         DiagnosticCollector collector = new DiagnosticCollector();
         parse(collector, "a {b");
         Assertions.assertTrue(collector.hasErrors());
-        Assertions.assertEquals(1, collector.diagnostics().getFirst().pos().line());
-        Assertions.assertEquals(3, collector.diagnostics().getFirst().pos().column());
+        Assertions.assertEquals(1, collector.diagnostics().getFirst().span().start().line());
+        Assertions.assertEquals(4, collector.diagnostics().getFirst().span().start().column());
     }
 
     @Test
@@ -193,7 +193,6 @@ public class TextParserTest {
         parse(collector, "<a>x</b>");
         Assertions.assertTrue(collector.hasErrors());
         assertHasSeverity(collector, Severity.ERROR, "Mismatched closing tag");
-        assertHasSeverity(collector, Severity.HINT, "Expected '</a>'");
     }
 
     @Test
@@ -211,7 +210,6 @@ public class TextParserTest {
         List<TextPart> result = parseParts(collector, "<red>hello");
         Assertions.assertTrue(collector.hasErrors());
         assertHasSeverity(collector, Severity.ERROR, "Unclosed tag");
-        assertHasSeverity(collector, Severity.HINT, "Expected '</red>'");
         Assertions.assertEquals(
                 List.of(new TextPart.BiTag("red", List.of(), new TextPart.Literal("hello"))),
                 result

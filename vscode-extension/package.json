@@ -1,0 +1,53 @@
+{
+  "name": "haru",
+  "displayName": "Haru",
+  "description": "Haru language support",
+  "version": "1.0.0",
+  "publisher": "Aros",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Programming Languages"],
+  "activationEvents": ["onLanguage:haru"],
+  "main": "./out/extension.js",
+  "repository": "https://github.com/YarikProgs/haru",
+  "contributes": {
+    "languages": [
+      {
+        "id": "haru",
+        "aliases": ["Haru"],
+        "extensions": [".haru"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "haru",
+        "scopeName": "source.haru",
+        "path": "./syntaxes/haru.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "Haru",
+      "properties": {
+        "haru.javaPath": {
+          "type": "string",
+          "default": "java",
+          "description": "Path to java executable"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.22.0",
+    "typescript": "^5.3.0"
+  }
+}

@@ -5,6 +5,7 @@ import net.aros.haru.ast.TextPart;
 import net.aros.haru.compile.CompiledProgram;
 import net.aros.haru.compile.Compiler;
 import net.aros.haru.diagnostic.DiagnosticCollector;
+import net.aros.haru.lex.IdentifierCollector;
 import net.aros.haru.lex.Lexer;
 import net.aros.haru.lex.Token;
 import net.aros.haru.link.LinkedProgram;
@@ -21,36 +22,37 @@ import java.util.Optional;
 import java.util.function.UnaryOperator;
 
 public class Haru {
-    public static @NotNull ParsedText parseText(@NotNull Token text, DiagnosticCollector diagnosticCollector) {
+    public static @NotNull ParsedText parseText(@NotNull Token text, DiagnosticCollector diagnosticCollector, @Nullable IdentifierCollector identifierCollector) {
         if (!(text.literal() instanceof String raw))
             return new ParsedText("", new TextPart.Parts(List.of()));
         if (raw.indexOf('{') < 0 && raw.indexOf('<') < 0)
             return new ParsedText(raw, new TextPart.Literal(raw));
 
-        return new TextParser(diagnosticCollector, text).parse();
+        return new TextParser(diagnosticCollector, identifierCollector, text).parse();
     }
 
     public static Optional<CompiledProgram> compile(
             String source,
             DiagnosticCollector diagnosticCollector,
+            @Nullable IdentifierCollector identifierCollector,
             @NotNull UnaryOperator<Compiler> compilerConfiguration,
             @Nullable TranslationFile oldTranslationFile
     ) {
-        return lex(source, diagnosticCollector)
-                .flatMap(tokens -> parse(tokens, diagnosticCollector))
+        return lex(source, diagnosticCollector, identifierCollector)
+                .flatMap(tokens -> parse(tokens, diagnosticCollector, identifierCollector))
                 .flatMap(program -> compile(program, diagnosticCollector, compilerConfiguration, oldTranslationFile));
     }
 
-    public static Optional<List<Token>> lex(String source, DiagnosticCollector diagnosticCollector) {
-        List<Token> tokens = new Lexer(diagnosticCollector, source).lexTokens();
+    public static Optional<List<Token>> lex(String source, DiagnosticCollector diagnosticCollector, @Nullable IdentifierCollector identifierCollector) {
+        List<Token> tokens = new Lexer(diagnosticCollector, identifierCollector, source).lexTokens();
         if (diagnosticCollector.hasErrors()) {
             return Optional.empty();
         }
         return Optional.of(tokens);
     }
 
-    public static Optional<Program> parse(List<Token> tokens, DiagnosticCollector diagnosticCollector) {
-        Program program = new Parser(diagnosticCollector, tokens).parse();
+    public static Optional<Program> parse(List<Token> tokens, DiagnosticCollector diagnosticCollector, @Nullable IdentifierCollector identifierCollector) {
+        Program program = new Parser(diagnosticCollector, identifierCollector, tokens).parse();
         if (diagnosticCollector.hasErrors()) {
             return Optional.empty();
         }

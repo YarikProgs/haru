@@ -4,6 +4,7 @@ import net.aros.haru.ast.Expr;
 import net.aros.haru.ast.Program;
 import net.aros.haru.ast.Stmt;
 import net.aros.haru.diagnostic.DiagnosticCollector;
+import net.aros.haru.diagnostic.SourceSpan;
 import net.aros.haru.lex.Token;
 import net.aros.haru.parse.ParsedText;
 import net.aros.haru.translation.TranslationFile;
@@ -80,7 +81,7 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
         for (DoSite site : doSites) {
             Integer target = blockAddresses.get(site.name().lexeme());
             if (target == null) {
-                diagnosticCollector.error("Unknown block: '" + site.name().lexeme() + "'", site.name().pos());
+                diagnosticCollector.error("Unknown block: '" + site.name().lexeme() + "'", site.name().span());
                 compilationFailed = true;
                 continue;
             }
@@ -105,7 +106,7 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
     public void visitVariable(Expr.@NotNull Variable expr) {
         Integer slot = slots.get(expr.name().lexeme());
         if (slot == null) {
-            diagnosticCollector.error("Unknown variable: '" + expr.name().lexeme() + "'", expr.name().pos());
+            diagnosticCollector.error("Unknown variable: '" + expr.name().lexeme() + "'", expr.name().span());
             compilationFailed = true;
             return;
         }
@@ -127,9 +128,10 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
 
     @Override
     public void visitExprStmt(Stmt.@NotNull ExprStmt stmt) {
-        if (stmt.expr() instanceof Expr.Literal literal) {
-            diagnosticCollector.warn(literal.token().lexeme() + " doesn't do anything", stmt.pos());
-            diagnosticCollector.hint("If you wanted to create a line, add ',' to the end", stmt.pos());
+        if (stmt.expr().isPure()) {
+            diagnosticCollector.warn("statement doesn't do anything", stmt.expr().span());
+            var pos = stmt.span().end();
+            diagnosticCollector.hint("If you wanted to create a line, add ',' here", SourceSpan.dot(pos.line(), pos.column() + 1));
         }
         visit(stmt.expr());
         emit(Instruction.Pop.INSTANCE);
@@ -144,7 +146,7 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
     public void visitNamedBlock(Stmt.@NotNull NamedBlock stmt) {
         String name = stmt.name().lexeme();
         if (pendingBlocks.stream().anyMatch(b -> b.name().lexeme().equals(name))) {
-            diagnosticCollector.error("Block '" + name + "' already defined", stmt.name().pos());
+            diagnosticCollector.error("Block '" + name + "' already defined", stmt.name().span());
             compilationFailed = true;
             return;
         }
@@ -178,8 +180,9 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
     @Override
     public void visitSystem(Stmt.@NotNull System stmt) {
         if (stmt.lines().size() == 1) {
-            diagnosticCollector.warn("System with single line", stmt.pos());
-            diagnosticCollector.hint("Consider replacing system with line (remove 'parallel' and block)", stmt.pos());
+            var parallelSpan = stmt.parallel().span();
+            diagnosticCollector.warn("System with single line", parallelSpan);
+            diagnosticCollector.hint("Consider replacing system with line (remove 'parallel' and block)", parallelSpan);
         }
 
         int[] argcs = new int[stmt.lines().size()];
@@ -195,7 +198,7 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
     public void visitDeclaration(Stmt.@NotNull Declaration stmt) {
         String name = stmt.name().lexeme();
         if (slots.containsKey(name)) {
-            diagnosticCollector.error("Variable '" + name + "' already defined", stmt.name().pos());
+            diagnosticCollector.error("Variable '" + name + "' already defined", stmt.name().span());
             compilationFailed = true;
             return;
         }

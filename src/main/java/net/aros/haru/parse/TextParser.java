@@ -2,10 +2,13 @@ package net.aros.haru.parse;
 
 import net.aros.haru.ast.TextPart;
 import net.aros.haru.diagnostic.DiagnosticCollector;
-import net.aros.haru.lex.SourcePos;
+import net.aros.haru.diagnostic.SourcePos;
+import net.aros.haru.diagnostic.SourceSpan;
+import net.aros.haru.lex.IdentifierCollector;
 import net.aros.haru.lex.Token;
 import net.aros.haru.lex.TokenType;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -16,339 +19,309 @@ import java.util.List;
  * Parses double-quoted string into parts
  */
 public class TextParser {
-    private final DiagnosticCollector diagnosticCollector;
-    private final String source;
-    private final List<TextPart> parts = new ArrayList<>();
-    private final StringBuilder literal = new StringBuilder();
-    private final Deque<OpenTag> stack = new ArrayDeque<>();
-    private int start, current, line, column, startLine, startColumn;
+    private final DiagnosticCollector diagnostics;
+    private final @Nullable IdentifierCollector identifiers;
+    private final String text;
+    private final int line;
+    private final int firstColumn;
+    private final Scope root = new Scope();
+    private final Deque<OpenTag> openTags = new ArrayDeque<>();
+    private int partStart;
+    private int position;
 
-    public TextParser(DiagnosticCollector diagnosticCollector, @NotNull Token source) {
-        this.diagnosticCollector = diagnosticCollector;
-        if (source.type() != TokenType.TEXT) {
-            throw new IllegalArgumentException("Expected text (double-quoted string), got: '" + source.lexeme() + "'");
+    public TextParser(DiagnosticCollector diagnosticCollector,
+                      @Nullable IdentifierCollector identifierCollector,
+                      @NotNull Token token) {
+        if (token.type() != TokenType.TEXT) {
+            throw new IllegalArgumentException("Expected text (double-quoted string), got: '" + token.lexeme() + "'");
         }
-        this.source = (String) source.literal();
-        this.line = source.pos().line();
-        this.column = source.pos().column();
+        this.diagnostics = diagnosticCollector;
+        this.identifiers = identifierCollector;
+        this.text = (String) token.literal();
+        this.line = token.span().start().line();
+        this.firstColumn = token.span().start().column() + 1;
     }
 
     public @NotNull ParsedText parse() {
-        if (source.isEmpty())
-            return new ParsedText(source, new TextPart.Literal(""));
-
+        if (text.isEmpty()) {
+            return new ParsedText(text, new TextPart.Literal(""));
+        }
         while (!isAtEnd()) {
-            mark();
-            parsePart();
+            parseNextPart();
         }
-
-        closeUnclosed();
-        flushLiteral(parts, literal);
-        return new ParsedText(source, new TextPart.Parts(parts));
+        closeUnclosedTags();
+        return new ParsedText(text, new TextPart.Parts(root.takeParts()));
     }
 
-    private void parsePart() {
+    private void parseNextPart() {
+        partStart = position;
         char c = advance();
-        if (c == '\\' && (peek() == '<' || peek() == '{')) {
-            currentLiteral().append(advance()); // < | {
+        if (c == '\\' && isEscapable(peek())) {
+            currentScope().append(advance());
         } else if (c == '{') {
-            placeholder();
+            parsePlaceholder();
         } else if (c == '<') {
-            tag();
+            parseTag();
         } else {
-            currentLiteral().append(c);
+            currentScope().append(c);
         }
     }
 
-    private void placeholder() {
-        start = current;
+    private void parsePlaceholder() {
+        int contentStart = position;
         skipUntil('}');
-        if (isAtEnd()) {
-            recoverUnterminatedPlaceholder();
-            return;
-        }
-        advance(); // }
-        String raw = source.substring(start, current - 1);
-        String name = raw.trim();
-        if (!isValidName(name)) {
-            recoverInvalidPlaceholder(raw, name);
-            return;
-        }
-        flushLiteral();
-        currentParts().add(new TextPart.Placeholder(name));
-    }
+        boolean terminated = !isAtEnd();
+        String raw = text.substring(contentStart, position);
+        match('}');
 
-    private void recoverInvalidPlaceholder(String raw, String name) {
-        if (name.isEmpty()) {
-            diagnosticCollector.error("Empty placeholder '{}'", startPos());
+        String name = raw.trim();
+        if (isValidName(name)) {
+            acceptPlaceholder(name, contentStart + countLeadingBlanks(raw), terminated);
         } else {
-            diagnosticCollector.error("Invalid placeholder name '{" + raw + "}'", startPos());
+            rejectPlaceholder(raw, name, terminated);
         }
-        currentLiteral().append('{').append(raw).append('}');
     }
 
-    private void recoverUnterminatedPlaceholder() {
-        String raw = source.substring(start, current);
-        String name = raw.trim();
-        if (!isValidName(name)) {
-            diagnosticCollector.error("Unterminated placeholder", startPos());
-            currentLiteral().append('{').append(raw);
-            return;
+    private void acceptPlaceholder(String name, int nameStart, boolean terminated) {
+        if (!terminated) {
+            diagnostics.error("Unterminated placeholder '{" + name + "', expected '}'", spanFromPartStart());
         }
-        diagnosticCollector.error("Unterminated placeholder '{" + name + "', expected '}'", startPos());
-        flushLiteral();
-        currentParts().add(new TextPart.Placeholder(name));
+        if (identifiers != null) {
+            identifiers.add(name, spanOf(nameStart, nameStart + name.length()));
+        }
+        currentScope().add(new TextPart.Placeholder(name));
     }
 
-    private void tag() {
+    private void rejectPlaceholder(String raw, String name, boolean terminated) {
+        diagnostics.error(describeInvalidPlaceholder(raw, name, terminated), spanFromPartStart());
+        Scope scope = currentScope();
+        scope.append('{');
+        scope.append(raw);
+        if (terminated) scope.append('}');
+    }
+
+    private String describeInvalidPlaceholder(String raw, String name, boolean terminated) {
+        if (!terminated) return "Unterminated placeholder";
+        if (name.isEmpty()) return "Empty placeholder '{}'";
+        return "Invalid placeholder name '{" + raw + "}'";
+    }
+
+    private void parseTag() {
         if (match('/')) {
-            closingTag();
+            parseClosingTag();
             return;
         }
-        if (isAtEnd() || !isAlpha(peek())) {
-            diagnosticCollector.error("Invalid tag syntax, expected tag name after '<'", startPos());
-            currentLiteral().append('<');
+        if (!isAlpha(peek())) {
+            diagnostics.error("Invalid tag syntax, expected tag name after '<'", spanFromPartStart());
+            currentScope().append('<');
             return;
         }
         String name = scanName();
         List<String> arguments = new ArrayList<>();
-        switch (tagEnd(name, arguments)) {
-            case OPEN -> {
-                flushLiteral();
-                stack.push(new OpenTag(name, arguments, startLine, startColumn));
-            }
-            case SELF_CLOSE, UNTERMINATED -> {
-                flushLiteral();
-                currentParts().add(new TextPart.Tag(name, List.copyOf(arguments)));
-            }
+        TagEnd end = scanTagEnd(name, arguments);
+        if (end == TagEnd.OPEN) {
+            openTag(name, arguments);
+        } else {
+            currentScope().add(new TextPart.Tag(name, List.copyOf(arguments)));
         }
     }
 
-    private TagEnd tagEnd(String name, List<String> arguments) {
+    private void openTag(String name, List<String> arguments) {
+        currentScope().flushLiteral();
+        openTags.push(new OpenTag(name, arguments, spanFromPartStart(), new Scope()));
+    }
+
+    private TagEnd scanTagEnd(String name, List<String> arguments) {
         while (true) {
             skipWhitespace();
             if (isAtEnd()) {
-                diagnosticCollector.error("Unterminated tag '<" + name + ">', expected '>' or '/>'", startPos());
+                diagnostics.error("Unterminated tag '<" + name + ">', expected '>' or '/>'", spanFromPartStart());
                 return TagEnd.UNTERMINATED;
             }
-            TagEnd end = tagEndChar(name, arguments);
-            if (end != null) return end;
+            char c = peek();
+            if (c == '>') {
+                advance();
+                return TagEnd.OPEN;
+            }
+            if (c == '/') {
+                if (scanSelfClose(name)) return TagEnd.SELF_CLOSE;
+            } else if (isArgChar(c)) {
+                arguments.add(scanArgument());
+            } else {
+                skipInvalidTagChar(name);
+            }
         }
     }
 
-    private TagEnd tagEndChar(String name, List<String> arguments) {
-        char c = peek();
-        if (c == '>') {
-            advance();
-            return TagEnd.OPEN;
-        }
-        if (c == '/') return slashInTag(name);
-        if (isArgChar(c)) {
-            scanArgument(arguments);
-            return null;
-        }
-        diagnosticCollector.error("Invalid character '" + c + "' in tag '<" + name + ">'", currentPos());
+    private boolean scanSelfClose(String name) {
         advance();
-        return null;
+        skipWhitespace();
+        if (match('>')) return true;
+        diagnostics.error("Expected '>' after '/' in tag '<" + name + ">'", spanOfCurrentChar());
+        return false;
     }
 
-    private TagEnd slashInTag(String name) {
-        advance(); // /
-        skipWhitespace();
-        if (match('>')) return TagEnd.SELF_CLOSE;
-        diagnosticCollector.error("Expected '>' after '/' in tag '<" + name + ">'", currentPos());
-        return null;
+    private void skipInvalidTagChar(String name) {
+        diagnostics.error("Invalid character '" + peek() + "' in tag '<" + name + ">'", spanOfCurrentChar());
+        advance();
     }
 
-    private void closingTag() {
+    private void parseClosingTag() {
         skipWhitespace();
-        if (isAtEnd() || !isAlpha(peek())) {
-            recoverInvalidClose();
+        if (!isAlpha(peek())) {
+            diagnostics.error("Invalid closing tag, expected tag name after '</'", spanFromPartStart());
+            currentScope().append("</");
             return;
         }
         String name = scanName();
         skipWhitespace();
         if (!match('>')) {
-            recoverUnterminatedClose(name);
+            reportBrokenClosingTag(name);
         }
-        processClose(name);
+        closeTag(name);
     }
 
-    private void recoverInvalidClose() {
-        diagnosticCollector.error("Invalid closing tag, expected tag name after '</'", startPos());
-        currentLiteral().append("</");
-    }
-
-    private void recoverUnterminatedClose(String name) {
+    private void reportBrokenClosingTag(String name) {
         if (isAtEnd()) {
-            diagnosticCollector.error("Unterminated closing tag '</" + name + ">', expected '>'", startPos());
+            diagnostics.error("Unterminated closing tag '</" + name + ">', expected '>'", spanFromPartStart());
             return;
         }
-        diagnosticCollector.error("Invalid closing tag '</" + name + ">', expected '>'", startPos());
         skipUntil('>');
-        if (!isAtEnd()) advance(); // >
+        match('>');
+        diagnostics.error("Invalid closing tag '</" + name + ">', expected '>'", spanFromPartStart());
     }
 
-    private void processClose(String name) {
-        if (stack.isEmpty()) {
-            diagnosticCollector.error("Unexpected closing tag '</" + name + ">'", startPos());
+    private void closeTag(String name) {
+        if (openTags.isEmpty()) {
+            diagnostics.error("Unexpected closing tag '</" + name + ">'", spanFromPartStart());
             return;
         }
-        OpenTag top = stack.peek();
-        if (!top.tag().equals(name)) {
-            reportMismatch(name, top.tag());
+        OpenTag open = openTags.peek();
+        if (!open.name().equals(name)) {
+            diagnostics.error("Mismatched closing tag '</" + name + ">', expected '</" + open.name() + ">'",
+                    spanFromPartStart());
             return;
         }
-        stack.pop();
-        flushLiteral(top.inner(), top.literal());
-        currentParts().add(closeFrame(top));
+        openTags.pop();
+        List<TextPart> inner = open.scope().takeParts();
+        if (inner.isEmpty()) {
+            diagnostics.warn("Empty paired tag '<" + name + "></" + name + ">'",
+                    new SourceSpan(open.span().start(), posAt(position)));
+        }
+        currentScope().add(toBiTag(open, inner));
     }
 
-    private void reportMismatch(String found, String expected) {
-        diagnosticCollector.error("Mismatched closing tag '</" + found + ">', expected '</" + expected + ">'", startPos());
-    }
-
-    private void closeUnclosed() {
-        while (!stack.isEmpty()) {
-            closeUnclosedTag();
+    private void closeUnclosedTags() {
+        while (!openTags.isEmpty()) {
+            OpenTag open = openTags.pop();
+            diagnostics.error("Unclosed tag '<" + open.name() + ">', expected '</" + open.name() + ">'", open.span());
+            currentScope().add(toBiTag(open, open.scope().takeParts()));
         }
     }
 
-    private void closeUnclosedTag() {
-        OpenTag frame = stack.pop();
-        flushLiteral(frame.inner(), frame.literal());
-        diagnosticCollector.error("Unclosed tag '<" + frame.tag() + ">', expected '</" + frame.tag() + ">'", frame.pos());
-        if (frame.inner().isEmpty()) {
-            currentParts().add(emptyBiTag(frame));
-        } else {
-            currentParts().add(closeFrame(frame));
-        }
+    private TextPart toBiTag(OpenTag open, List<TextPart> inner) {
+        return new TextPart.BiTag(open.name(), List.copyOf(open.arguments()), toSinglePart(inner));
     }
 
-    private TextPart closeFrame(OpenTag frame) {
-        if (frame.inner().isEmpty()) {
-            diagnosticCollector.warn("Empty paired tag '<" + frame.tag() + "></" + frame.tag() + ">'", frame.pos());
-            return emptyBiTag(frame);
-        }
-        TextPart inner = frame.inner().size() == 1
-                ? frame.inner().getFirst()
-                : new TextPart.Parts(List.copyOf(frame.inner()));
-        return new TextPart.BiTag(frame.tag(), List.copyOf(frame.arguments()), inner);
+    private TextPart toSinglePart(List<TextPart> parts) {
+        if (parts.isEmpty()) return new TextPart.Literal("");
+        if (parts.size() == 1) return parts.getFirst();
+        return new TextPart.Parts(List.copyOf(parts));
     }
 
-    private TextPart emptyBiTag(OpenTag frame) {
-        return new TextPart.BiTag(frame.tag(), List.copyOf(frame.arguments()), new TextPart.Literal(""));
-    }
-
-    private List<TextPart> currentParts() {
-        return stack.isEmpty() ? parts : stack.peek().inner();
-    }
-
-    private StringBuilder currentLiteral() {
-        return stack.isEmpty() ? literal : stack.peek().literal();
-    }
-
-    private void flushLiteral() {
-        flushLiteral(currentParts(), currentLiteral());
-    }
-
-    private void flushLiteral(List<TextPart> target, StringBuilder buffer) {
-        if (buffer.isEmpty()) return;
-        target.add(new TextPart.Literal(buffer.toString()));
-        buffer.setLength(0);
+    private Scope currentScope() {
+        return openTags.isEmpty() ? root : openTags.peek().scope();
     }
 
     private String scanName() {
-        start = current;
-        do advance();
-        while (isTagNamePart(peek()));
-        return source.substring(start, current);
+        int start = position;
+        advance();
+        while (isTagNamePart(peek())) advance();
+        return text.substring(start, position);
     }
 
-    private void scanArgument(List<String> arguments) {
-        start = current;
+    private String scanArgument() {
+        int start = position;
         while (isArgChar(peek())) advance();
-        arguments.add(source.substring(start, current));
+        return text.substring(start, position);
     }
 
     private void skipWhitespace() {
-        while (!isAtEnd() && isWhitespace(peek())) advance();
+        while (isWhitespace(peek())) advance();
     }
 
     private void skipUntil(char target) {
         while (!isAtEnd() && peek() != target) advance();
     }
 
-    private void mark() {
-        start = current;
-        startLine = line;
-        startColumn = column;
+    private int countLeadingBlanks(String raw) {
+        int count = 0;
+        while (count < raw.length() && raw.charAt(count) <= ' ') count++;
+        return count;
     }
 
-    private SourcePos startPos() {
-        return new SourcePos(startLine, startColumn);
+    private SourcePos posAt(int index) {
+        return new SourcePos(line, firstColumn + index);
     }
 
-    private SourcePos currentPos() {
-        return new SourcePos(line, column);
+    private SourceSpan spanOf(int from, int to) {
+        return new SourceSpan(posAt(from), posAt(to));
     }
 
-    private boolean isValidName(String name) {
-        if (name.isEmpty() || !isAlpha(name.charAt(0))) return false;
-        for (int i = 1; i < name.length(); i++) {
-            char c = name.charAt(i);
-            if (!isAlpha(c) && !isDigit(c)) return false;
-        }
+    private SourceSpan spanFromPartStart() {
+        return spanOf(partStart, position);
+    }
+
+    private SourceSpan spanOfCurrentChar() {
+        return spanOf(position, Math.min(position + 1, text.length()));
+    }
+
+    private boolean match(char expected) {
+        if (isAtEnd() || peek() != expected) return false;
+        advance();
         return true;
     }
 
-    private boolean match(char c) {
-        if (peek() == c) {
-            advance();
-            return true;
-        }
-        return false;
-    }
-
     private char advance() {
-        if (isAtEnd()) return '\0';
-        char c = source.charAt(current++);
-        if (c == '\n') {
-            line++;
-            column = 1;
-        } else {
-            column++;
-        }
-        return c;
+        return isAtEnd() ? '\0' : text.charAt(position++);
     }
 
     private char peek() {
-        return isAtEnd() ? '\0' : source.charAt(current);
-    }
-
-    private boolean isWhitespace(char c) {
-        return c == ' ' || c == '\t' || c == '\r' || c == '\n';
-    }
-
-    private boolean isTagNamePart(char c) {
-        return isAlpha(c) || isDigit(c) || c == '-';
-    }
-
-    private boolean isArgChar(char c) {
-        return !isWhitespace(c) && c != '<' && c != '>' && c != '{' && c != '}'
-                && c != '/' && c != '\\' && c != '"' && c != '\'' && c != '\0';
-    }
-
-    private boolean isDigit(char c) {
-        return c >= '0' && c <= '9';
-    }
-
-    private boolean isAlpha(char c) {
-        return Character.isLetter(c) || c == '_' || c == '$';
+        return isAtEnd() ? '\0' : text.charAt(position);
     }
 
     private boolean isAtEnd() {
-        return current >= source.length();
+        return position >= text.length();
+    }
+
+    private static boolean isEscapable(char c) {
+        return c == '<' || c == '{';
+    }
+
+    private static boolean isValidName(String name) {
+        return !name.isEmpty()
+                && isAlpha(name.charAt(0))
+                && name.chars().skip(1).allMatch(c -> isAlpha((char) c) || isDigit((char) c));
+    }
+
+    private static boolean isWhitespace(char c) {
+        return c == ' ' || c == '\t' || c == '\r' || c == '\n';
+    }
+
+    private static boolean isTagNamePart(char c) {
+        return isAlpha(c) || isDigit(c) || c == '-';
+    }
+
+    private static boolean isArgChar(char c) {
+        return !isWhitespace(c) && "<>{}/\\\"'\0".indexOf(c) < 0;
+    }
+
+    private static boolean isDigit(char c) {
+        return c >= '0' && c <= '9';
+    }
+
+    private static boolean isAlpha(char c) {
+        return Character.isLetter(c) || c == '_' || c == '$';
     }
 
     private enum TagEnd {
@@ -357,14 +330,35 @@ public class TextParser {
         UNTERMINATED
     }
 
-    private record OpenTag(String tag, List<String> arguments, List<TextPart> inner, StringBuilder literal, int line,
-                           int column) {
-        OpenTag(String tag, List<String> arguments, int line, int column) {
-            this(tag, arguments, new ArrayList<>(), new StringBuilder(), line, column);
+    private record OpenTag(String name, List<String> arguments, SourceSpan span, Scope scope) {
+    }
+
+    private static final class Scope {
+        private final List<TextPart> parts = new ArrayList<>();
+        private final StringBuilder literal = new StringBuilder();
+
+        void append(char c) {
+            literal.append(c);
         }
 
-        SourcePos pos() {
-            return new SourcePos(line, column);
+        void append(String s) {
+            literal.append(s);
+        }
+
+        void add(TextPart part) {
+            flushLiteral();
+            parts.add(part);
+        }
+
+        void flushLiteral() {
+            if (literal.isEmpty()) return;
+            parts.add(new TextPart.Literal(literal.toString()));
+            literal.setLength(0);
+        }
+
+        List<TextPart> takeParts() {
+            flushLiteral();
+            return parts;
         }
     }
 }

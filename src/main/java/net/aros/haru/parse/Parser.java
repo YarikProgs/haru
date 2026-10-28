@@ -5,12 +5,15 @@ import net.aros.haru.ast.Expr;
 import net.aros.haru.ast.Program;
 import net.aros.haru.ast.Stmt;
 import net.aros.haru.diagnostic.DiagnosticCollector;
+import net.aros.haru.lex.IdentifierCollector;
 import net.aros.haru.lex.Token;
 import net.aros.haru.lex.TokenType;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static net.aros.haru.lex.TokenType.*;
@@ -18,10 +21,12 @@ import static net.aros.haru.lex.TokenType.*;
 public class Parser {
     private final DiagnosticCollector diagnosticCollector;
     private final List<Token> tokens;
+    private final IdentifierCollector identifierCollector;
     private int current;
 
-    public Parser(DiagnosticCollector diagnosticCollector, List<Token> tokens) {
+    public Parser(DiagnosticCollector diagnosticCollector, @Nullable IdentifierCollector identifierCollector, List<Token> tokens) {
         this.diagnosticCollector = diagnosticCollector;
+        this.identifierCollector = identifierCollector;
         this.tokens = tokens;
     }
 
@@ -70,11 +75,12 @@ public class Parser {
 
     @Contract(" -> new")
     private @NotNull Stmt declaration() {
+        Token let = previous();
         Token name = consume(IDENTIFIER, "Expect variable name after 'let'");
         consume(EQUAL, "Expect '=' after variable name");
         var expr = expression();
         consume(SEMICOLON, "Expect ';' after expression");
-        return new Stmt.Declaration(name, expr);
+        return new Stmt.Declaration(let, name, expr);
     }
 
     @Contract(" -> new")
@@ -82,29 +88,30 @@ public class Parser {
         Token tok = previous();
         Expr cond = expression();
         Stmt.Block then = block();
-        Stmt.Block orElse = match(ELIF) ? new Stmt.Block(List.of(ifStmt())) : match(ELSE) ? block() : null;
+        Stmt.Block orElse = match(ELIF) ? new Stmt.Block(null, List.of(ifStmt()), null) : match(ELSE) ? block() : null;
         return new Stmt.If(tok, cond, then, orElse);
     }
 
     private Stmt.@NotNull Block block() {
-        consume(LBRACE, "Expect '{'");
-        Stmt.Block block = new Stmt.Block(new ArrayList<>());
+        Token rbrace = consume(LBRACE, "Expect '{'");
+        List<Stmt> stmts = new ArrayList<>();
         while (!check(RBRACE) && !isAtEnd()) {
-            block.stmts().add(statement());
+            stmts.add(statement());
         }
-        consume(RBRACE, "Expect '}'");
-        return block;
+        Token lbrace = consume(RBRACE, "Expect '}'");
+        return new Stmt.Block(lbrace, Collections.unmodifiableList(stmts), rbrace);
     }
 
     @Contract(" -> new")
     private @NotNull Stmt system() {
+        Token parallel = previous();
         consume(LBRACE, "Expect '{' after 'parallel'");
         List<Stmt.Line> lines = new ArrayList<>();
         do {
             lines.add(line(expression()));
         } while (!check(RBRACE) && !isAtEnd());
-        consume(RBRACE, "Expect '}' after lines");
-        return new Stmt.System(lines);
+        Token rbrace = consume(RBRACE, "Expect '}' after lines");
+        return new Stmt.System(parallel, lines, rbrace);
     }
 
     @Contract("_ -> new")
@@ -135,7 +142,7 @@ public class Parser {
         if (match(TRUE)) return new Expr.Literal(previous(), true);
         if (match(FALSE)) return new Expr.Literal(previous(), false);
         if (match(NUMBER, STRING)) return new Expr.Literal(previous(), previous().literal());
-        if (match(TEXT)) return new Expr.Literal(previous(), Haru.parseText(previous(), diagnosticCollector));
+        if (match(TEXT)) return new Expr.Literal(previous(), Haru.parseText(previous(), diagnosticCollector, identifierCollector));
         if (match(IDENTIFIER)) {
             Token ident = previous();
             if (match(LPAREN)) return finishCall(ident);
@@ -161,8 +168,8 @@ public class Parser {
                 arguments.add(expression());
             } while (match(COMMA));
         }
-        consume(RPAREN, "Expect ')' after arguments");
-        return new Expr.Call(callee, arguments);
+        Token rparen = consume(RPAREN, "Expect ')' after arguments");
+        return new Expr.Call(callee, arguments, rparen);
     }
 
     private Token consume(TokenType type, String message) {
@@ -177,7 +184,7 @@ public class Parser {
             errorMessage = message + " at end";
         else
             errorMessage = message + " at '" + token.lexeme() + "'";
-        diagnosticCollector.error(errorMessage, token.pos());
+        diagnosticCollector.error(errorMessage, token.span());
         return new ParseError();
     }
 

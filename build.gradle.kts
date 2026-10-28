@@ -1,5 +1,6 @@
 plugins {
     id("java")
+    id("com.gradleup.shadow") version "9.0.0"
 }
 
 group = "net.aros"
@@ -22,6 +23,23 @@ dependencies {
 
     implementation("com.mojang:datafixerupper:8.0.16")
     implementation("info.picocli:picocli:4.7.7")
+}
+
+tasks.shadowJar {
+    archiveBaseName = "haru"
+    archiveClassifier.set("")
+    archiveVersion.set("")
+    manifest {
+        attributes["Main-Class"] = "net.aros.haru.HaruCli"
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from({
+        project.configurations.runtimeClasspath.get().map {
+            if (it.isDirectory) it else zipTree(it)
+        }
+    })
+    exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA")
+    exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA")
 }
 
 tasks.test {
