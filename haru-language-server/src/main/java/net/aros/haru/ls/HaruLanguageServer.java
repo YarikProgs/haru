@@ -17,6 +17,7 @@ public class HaruLanguageServer implements LanguageServer, LanguageClientAware {
         RenameOptions renameOptions = new RenameOptions();
         renameOptions.setPrepareProvider(true);
         capabilities.setRenameProvider(renameOptions);
+        capabilities.setDocumentHighlightProvider(true);
         return CompletableFuture.completedFuture(new InitializeResult(capabilities));
     }
 

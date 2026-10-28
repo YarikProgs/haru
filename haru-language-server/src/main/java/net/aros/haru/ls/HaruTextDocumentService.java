@@ -69,6 +69,19 @@ public class HaruTextDocumentService implements TextDocumentService {
     }
 
     @Override
+    public CompletableFuture<List<? extends DocumentHighlight>> documentHighlight(DocumentHighlightParams params) {
+        int line = params.getPosition().getLine() + 1;
+        int column = params.getPosition().getCharacter() + 1;
+        return CompletableFuture.completedFuture(
+                findOccurrenceInAt(params.getTextDocument().getUri(), line, column)
+                        .map(oc -> oc.all().stream()
+                                .map(span -> new DocumentHighlight(toLsp4j(span), DocumentHighlightKind.Text))
+                                .toList())
+                        .orElse(List.of())
+        );
+    }
+
+    @Override
     public CompletableFuture<Either3<Range, PrepareRenameResult, PrepareRenameDefaultBehavior>> prepareRename(
             PrepareRenameParams params) {
         int line = params.getPosition().getLine() + 1;
