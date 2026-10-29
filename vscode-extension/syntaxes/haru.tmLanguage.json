@@ -15,6 +15,7 @@
     "comments": {
       "patterns": [
         { "name": "comment.line.double-slash.haru", "match": "//.*$" },
+        { "name": "comment.line.haru", "match": "#.*$" },
         { "name": "comment.block.haru", "begin": "/\\*", "end": "\\*/" }
       ]
     },
