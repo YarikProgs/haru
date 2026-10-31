@@ -20,38 +20,44 @@ public class TranslationMergerTest {
         return new TextParser(new DiagnosticCollector(), null, token).parse();
     }
 
-    private static TranslationFile merge(@Nullable TranslationFile oldFile, List<String> locales, String... texts) {
+    private static TranslationFile merge(@Nullable TranslationFile oldFile, String... texts) {
         TranslationMerger merger = new TranslationMerger(oldFile);
-        merger.withLocales(locales);
         for (String text : texts) {
             merger.addText(parse(text));
         }
         return merger.merge();
     }
 
-    private static TextEntry entry(String original, Map<String, String> translations, String... fuzzy) {
-        return new TextEntry(original, translations, List.of(fuzzy));
+    /** Checked translation. */
+    private static Translation tr(String text) {
+        return new Translation(parse(text), false);
+    }
+
+    /** Translation that needs review. */
+    private static Translation fuzzy(String text) {
+        return new Translation(parse(text), true);
+    }
+
+    private static TextEntry entry(String original, Map<String, Translation> translations) {
+        return new TextEntry(parse(original), translations);
     }
 
     private static TextEntry entry(String original) {
-        return entry(original, Map.<String, String>of());
+        return entry(original, Map.of());
     }
 
-    private static Map<String, String> translations(String... pairs) {
-        Map<String, String> result = new LinkedHashMap<>();
+    private static Map<String, Translation> translations(Object... pairs) {
+        Map<String, Translation> result = new LinkedHashMap<>();
         for (int i = 0; i < pairs.length; i += 2) {
-            result.put(pairs[i], pairs[i + 1]);
+            result.put((String) pairs[i], (Translation) pairs[i + 1]);
         }
         return result;
     }
 
     @Test
-    public void freshEntryGetsCopiedOriginalsAsFuzzyTranslations() {
-        TranslationFile file = merge(null, List.of("ru_ru", "en_us"), "Hello {name}!");
-        Assertions.assertEquals(
-                List.of(entry("Hello {name}!", Map.of("ru_ru", "Hello {name}!", "en_us", "Hello {name}!"), "ru_ru", "en_us")),
-                file.entries()
-        );
+    public void freshEntryHasNoTranslations() {
+        TranslationFile file = merge(null, "Hello {name}!");
+        Assertions.assertEquals(List.of(entry("Hello {name}!")), file.entries());
         Assertions.assertTrue(file.removed().isEmpty());
     }
 
@@ -59,19 +65,19 @@ public class TranslationMergerTest {
     public void addedPhraseIsInsertedInTheMiddle() {
         TranslationFile oldFile = new TranslationFile(
                 List.of(
-                        entry("First", Map.of("ru_ru", "Первый")),
-                        entry("Third", Map.of("ru_ru", "Третий"))
+                        entry("First", translations("ru_ru", tr("Первый"))),
+                        entry("Third", translations("ru_ru", tr("Третий")))
                 ),
                 List.of()
         );
 
-        TranslationFile file = merge(oldFile, List.of(), "First", "Second", "Third");
+        TranslationFile file = merge(oldFile, "First", "Second", "Third");
 
         Assertions.assertEquals(
                 List.of(
-                        entry("First", Map.of("ru_ru", "Первый")),
+                        entry("First", translations("ru_ru", tr("Первый"))),
                         entry("Second"),
-                        entry("Third", Map.of("ru_ru", "Третий"))
+                        entry("Third", translations("ru_ru", tr("Третий")))
                 ),
                 file.entries()
         );
@@ -81,95 +87,142 @@ public class TranslationMergerTest {
     @Test
     public void deletedPhraseFallsIntoRemovedAndIsRestoredLater() {
         TranslationFile oldFile = new TranslationFile(
-                List.of(entry("A", Map.of("ru_ru", "А")), entry("B", Map.of("ru_ru", "Б"))),
-                List.of(entry("Old removed", Map.of("ru_ru", "Удалён и раньше")))
+                List.of(
+                        entry("A", translations("ru_ru", tr("А"))),
+                        entry("B", translations("ru_ru", tr("Б")))
+                ),
+                List.of(entry("Old removed", translations("ru_ru", tr("Удалён и раньше"))))
         );
 
         // "B" is deleted -> falls into removed, old 'removed' is kept
-        TranslationFile afterDeletion = merge(oldFile, List.of(), "A");
-        Assertions.assertEquals(List.of(entry("A", Map.of("ru_ru", "А"))), afterDeletion.entries());
+        TranslationFile afterDeletion = merge(oldFile, "A");
+        Assertions.assertEquals(List.of(entry("A", translations("ru_ru", tr("А")))), afterDeletion.entries());
         Assertions.assertEquals(
-                List.of(entry("Old removed", Map.of("ru_ru", "Удалён и раньше")), entry("B", Map.of("ru_ru", "Б"))),
+                List.of(
+                        entry("Old removed", translations("ru_ru", tr("Удалён и раньше"))),
+                        entry("B", translations("ru_ru", tr("Б")))
+                ),
                 afterDeletion.removed()
         );
 
         // "B" is back -> restored with its translations
-        TranslationFile afterReturn = merge(afterDeletion, List.of(), "A", "B");
+        TranslationFile afterReturn = merge(afterDeletion, "A", "B");
         Assertions.assertEquals(
-                List.of(entry("A", Map.of("ru_ru", "А")), entry("B", Map.of("ru_ru", "Б"))),
+                List.of(
+                        entry("A", translations("ru_ru", tr("А"))),
+                        entry("B", translations("ru_ru", tr("Б")))
+                ),
                 afterReturn.entries()
         );
-        Assertions.assertEquals(List.of(entry("Old removed", Map.of("ru_ru", "Удалён и раньше"))), afterReturn.removed());
+        Assertions.assertEquals(
+                List.of(entry("Old removed", translations("ru_ru", tr("Удалён и раньше")))),
+                afterReturn.removed()
+        );
     }
 
     @Test
-    public void editedPhraseKeepsTranslationsButEverythingBecomesFuzzy() {
+    public void deletedPhraseWithoutTranslationsIsDropped() {
         TranslationFile oldFile = new TranslationFile(
-                List.of(new TextEntry("Number that stands after <blue>{a}</blue> is <red>{b}</red>",
-                        translations(
-                                "ru_ru", "Число, стоящее после <blue>{a}</blue>, это <red>{b}</red>",
-                                "en_us", "Number that stands after <blue>{a}</blue> is <red>{b}</red>"
-                        ),
-                        List.of())),
+                List.of(entry("A"), entry("B", translations("ru_ru", tr("Б")))),
                 List.of()
         );
 
-        TranslationFile file = merge(oldFile, List.of("ru_ru", "en_us"),
-                "The number that stands after <blue>{a}</blue> is <red>{b}</red>");
+        TranslationFile file = merge(oldFile);
+
+        Assertions.assertTrue(file.entries().isEmpty());
+        Assertions.assertEquals(List.of(entry("B", translations("ru_ru", tr("Б")))), file.removed());
+    }
+
+    @Test
+    public void unchangedPhraseKeepsTranslationsAndFuzzyFlags() {
+        TranslationFile oldFile = new TranslationFile(
+                List.of(entry("Hi", translations("ru_ru", tr("Привет"), "en_us", fuzzy("Hey")))),
+                List.of()
+        );
+
+        TranslationFile file = merge(oldFile, "Hi");
 
         Assertions.assertEquals(
-                List.of(new TextEntry("The number that stands after <blue>{a}</blue> is <red>{b}</red>",
-                        translations(
-                                "ru_ru", "Число, стоящее после <blue>{a}</blue>, это <red>{b}</red>",
-                                "en_us", "Number that stands after <blue>{a}</blue> is <red>{b}</red>"
-                        ),
-                        List.of("ru_ru", "en_us"))),
+                List.of(entry("Hi", translations("ru_ru", tr("Привет"), "en_us", fuzzy("Hey")))),
                 file.entries()
         );
         Assertions.assertTrue(file.removed().isEmpty());
     }
 
     @Test
-    public void missingLocaleIsFilledWithOriginalAndMarkedFuzzy() {
+    public void editedPhraseKeepsTranslationsButEverythingBecomesFuzzy() {
         TranslationFile oldFile = new TranslationFile(
-                List.of(entry("Hi", Map.of("ru_ru", "Привет"))),
+                List.of(entry("Number that stands after <blue>{a}</blue> is <red>{b}</red>",
+                        translations(
+                                "ru_ru", tr("Число, стоящее после <blue>{a}</blue>, это <red>{b}</red>"),
+                                "en_us", tr("Number that stands after <blue>{a}</blue> is <red>{b}</red>")
+                        ))),
                 List.of()
         );
 
-        TranslationFile file = merge(oldFile, List.of("ru_ru", "en_us"), "Hi");
+        TranslationFile file = merge(oldFile,
+                "The number that stands after <blue>{a}</blue> is <red>{b}</red>");
 
         Assertions.assertEquals(
-                List.of(entry("Hi", Map.of("ru_ru", "Привет", "en_us", "Hi"), "en_us")),
+                List.of(entry("The number that stands after <blue>{a}</blue> is <red>{b}</red>",
+                        translations(
+                                "ru_ru", fuzzy("Число, стоящее после <blue>{a}</blue>, это <red>{b}</red>"),
+                                "en_us", fuzzy("Number that stands after <blue>{a}</blue> is <red>{b}</red>")
+                        ))),
                 file.entries()
         );
+        Assertions.assertTrue(file.removed().isEmpty());
+    }
+
+    @Test
+    public void editedPhraseWithoutTranslationsJustGetsNewOriginal() {
+        TranslationFile oldFile = new TranslationFile(
+                List.of(entry("Number that stands after <blue>{a}</blue> is <red>{b}</red>")),
+                List.of()
+        );
+
+        TranslationFile file = merge(oldFile,
+                "The number that stands after <blue>{a}</blue> is <red>{b}</red>");
+
+        Assertions.assertEquals(
+                List.of(entry("The number that stands after <blue>{a}</blue> is <red>{b}</red>")),
+                file.entries()
+        );
+        Assertions.assertTrue(file.removed().isEmpty());
     }
 
     @Test
     public void unrelatedPhraseIsNotMatchedAsEdit() {
         TranslationFile oldFile = new TranslationFile(
-                List.of(entry("Goodbye.", Map.of("ru_ru", "До свидания."))),
+                List.of(entry("Goodbye.", translations("ru_ru", tr("До свидания.")))),
                 List.of()
         );
 
-        TranslationFile file = merge(oldFile, List.of(), "Hello.");
+        TranslationFile file = merge(oldFile, "Hello.");
 
         Assertions.assertEquals(List.of(entry("Hello.")), file.entries());
-        Assertions.assertEquals(List.of(entry("Goodbye.", Map.of("ru_ru", "До свидания."))), file.removed());
+        Assertions.assertEquals(
+                List.of(entry("Goodbye.", translations("ru_ru", tr("До свидания.")))),
+                file.removed()
+        );
     }
 
     @Test
     public void samePhraseTwiceProducesSeparateEntries() {
         // fresh: each occurrence is its own entry
-        TranslationFile file = merge(null, List.of(), "Hi", "Hi");
+        TranslationFile file = merge(null, "Hi", "Hi");
         Assertions.assertEquals(List.of(entry("Hi"), entry("Hi")), file.entries());
 
         // with an old file only the first occurrence binds to the old entry,
         // the second is a fresh entry at its own position
-        TranslationFile oldFile = new TranslationFile(List.of(entry("Hi", Map.of("ru_ru", "Привет"))), List.of());
-        TranslationFile merged = merge(oldFile, List.of(), "Hi", "Hi");
+        TranslationFile oldFile = new TranslationFile(
+                List.of(entry("Hi", translations("ru_ru", tr("Привет")))),
+                List.of()
+        );
+        TranslationFile merged = merge(oldFile, "Hi", "Hi");
 
         Assertions.assertEquals(
-                List.of(entry("Hi", Map.of("ru_ru", "Привет")), entry("Hi")),
+                List.of(entry("Hi", translations("ru_ru", tr("Привет"))), entry("Hi")),
                 merged.entries()
         );
         Assertions.assertTrue(merged.removed().isEmpty());
