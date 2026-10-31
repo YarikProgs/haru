@@ -1,5 +1,7 @@
 package net.aros.haru.value;
 
+import org.jetbrains.annotations.NotNull;
+
 record NumberValue(double value) implements Value {
     @Override
     public Value add(Value other) {
@@ -53,7 +55,7 @@ record NumberValue(double value) implements Value {
     }
 
     @Override
-    public String asString() {
+    public @NotNull String toString() {
         String value = String.valueOf(this.value);
         if (value.endsWith(".0")) return value.substring(0, value.length() - 2);
         return value;

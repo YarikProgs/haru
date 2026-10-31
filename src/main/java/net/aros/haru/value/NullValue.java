@@ -16,17 +16,12 @@ final class NullValue implements Value {
 
     @Contract(pure = true)
     @Override
-    public @NotNull String asString() {
+    public @NotNull String toString() {
         return "null";
     }
 
     @Override
     public boolean isNull() {
         return true;
-    }
-
-    @Override
-    public String toString() {
-        return "NullValue";
     }
 }

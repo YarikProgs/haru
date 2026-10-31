@@ -11,7 +11,7 @@ public sealed interface Instruction {
 
     record Line(int argc) implements Instruction {
         @Override
-        public void execute(@NotNull AbstractDialoguePlayer player) {
+        public void execute(@NotNull AbstractDialoguePlayer player) throws DialogueException {
             player.suspend();
             player.onSingleLine(Util.popRev(player, argc));
         }
@@ -19,7 +19,7 @@ public sealed interface Instruction {
 
     record ParallelLines(int[] argcs) implements Instruction {
         @Override
-        public void execute(@NotNull AbstractDialoguePlayer player) {
+        public void execute(@NotNull AbstractDialoguePlayer player) throws DialogueException {
             player.suspend();
             player.onMultipleLines(Util.popRev(player, argcs));
         }

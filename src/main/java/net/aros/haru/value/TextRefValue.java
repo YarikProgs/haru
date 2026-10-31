@@ -7,7 +7,7 @@ record TextRefValue(int index) implements Value {
     }
 
     @Override
-    public String asString() {
+    public String toString() {
         return "<text #" + index + ">";
     }
 

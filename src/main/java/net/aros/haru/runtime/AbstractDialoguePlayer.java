@@ -1,43 +1,62 @@
 package net.aros.haru.runtime;
 
+import net.aros.haru.ast.TextPart;
 import net.aros.haru.compile.Instruction;
 import net.aros.haru.link.LinkedProgram;
 import net.aros.haru.runtime.RuntimeDiagnostic.ErrorCode;
 import net.aros.haru.value.Value;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayDeque;
-import java.util.Arrays;
-import java.util.Deque;
-import java.util.Map;
+import java.util.*;
 
 public abstract class AbstractDialoguePlayer {
     private static final int MAX_CALL_DEPTH = 1024;
-    private final LinkedProgram program;
+    private final LinkedProgram linkedProgram;
     private final Deque<Value> stack = new ArrayDeque<>();
     private final Deque<Integer> callStack = new ArrayDeque<>();
     private final Value[] slots;
+    private final AbstractTextRenderer.Factory textRendererFactory;
     private int ip;
     private boolean done, suspended;
 
-    public AbstractDialoguePlayer(@NotNull LinkedProgram program, Map<String, Value> externalVariables) throws DialogueException {
-        this.program = program;
-        this.slots = new Value[program.program().slots().size()];
+    public AbstractDialoguePlayer(
+            @NotNull LinkedProgram linkedProgram,
+            Map<String, Value> externalVariables,
+            AbstractTextRenderer.Factory textRendererFactory
+    ) throws DialogueException {
+        this.linkedProgram = linkedProgram;
+        this.slots = new Value[linkedProgram.program().slots().size()];
+        this.textRendererFactory = Objects.requireNonNull(textRendererFactory);
         Arrays.fill(slots, Value.nullValue());
-        Util.checkSlots(program.program(), externalVariables);
-        Util.mergeSlots(program.program(), slots, externalVariables);
+        Util.checkSlots(linkedProgram.program(), externalVariables);
+        Util.mergeSlots(linkedProgram.program(), slots, externalVariables);
     }
 
     public final void update() throws DialogueException {
         if (done || suspended) return;
 
-        Instruction instruction = program.program().instructions()[ip++];
+        Instruction instruction = linkedProgram.program().instructions()[ip++];
         instruction.execute(this);
     }
 
-    public abstract void onSingleLine(Value[] args);
+    public abstract void onSingleLine(Value[] args) throws DialogueException;
 
-    public abstract void onMultipleLines(Value[][] args);
+    public abstract void onMultipleLines(Value[][] args) throws DialogueException;
+
+    public final String renderText(TextPart part, String locale) throws DialogueException {
+        var textRenderer = textRendererFactory.create(this, locale);
+        textRenderer.visit(part);
+        return textRenderer.toString();
+    }
+
+    public final String renderValue(@NotNull Value value, String locale) throws DialogueException {
+        if (value.isLiteralRef())
+            return linkedProgram.program().literals()[value.asLiteralRef()];
+        else if (value.isTextRef())
+            return renderText(Util.getEntry(linkedProgram.program(), value.asTextRef(), locale).text(), locale);
+        else
+            return value.toString();
+    }
 
     /* stack */
     public final Value pop() {
@@ -86,8 +105,8 @@ public abstract class AbstractDialoguePlayer {
     }
 
     /* getters */
-    public final @NotNull LinkedProgram program() {
-        return program;
+    public final @NotNull LinkedProgram linkedProgram() {
+        return linkedProgram;
     }
 
     public final boolean isDone() {

@@ -7,7 +7,7 @@ record LiteralRefValue(int index) implements Value {
     }
 
     @Override
-    public String asString() {
+    public String toString() {
         return "<string literal #" + index + ">";
     }
 

@@ -3,16 +3,10 @@ package net.aros.haru;
 import net.aros.haru.compile.CompiledProgram;
 import net.aros.haru.compile.Instruction;
 import net.aros.haru.compile.io.ProgramIO;
-import net.aros.haru.diagnostic.Diagnostic;
 import net.aros.haru.diagnostic.DiagnosticCollector;
-import net.aros.haru.diagnostic.DiagnosticRenderer;
-import net.aros.haru.lex.IdentifierCollector;
 import net.aros.haru.link.LinkedProgram;
-import net.aros.haru.runtime.AbstractDialoguePlayer;
-import net.aros.haru.runtime.DialogueException;
 import net.aros.haru.translation.TranslationFile;
 import net.aros.haru.translation.io.TranslationFileIO;
-import net.aros.haru.value.Value;
 import org.jetbrains.annotations.NotNull;
 import picocli.CommandLine;
 
@@ -22,10 +16,11 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.function.UnaryOperator;
+
+import static net.aros.haru.diagnostic.DiagnosticRenderer.render;
 
 @CommandLine.Command(
         name = "haru",
@@ -144,8 +139,7 @@ public class HaruCli implements Callable<Integer> {
         DiagnosticCollector diagnosticCollector = new DiagnosticCollector();
         String source = Files.readString(path);
         int status = compileOrImport(source, diagnosticCollector);
-//        printDiagnostics(diagnosticCollector.diagnostics());
-        System.out.println(DiagnosticRenderer.render(diagnosticCollector.diagnostics(), path, source));
+        System.out.println(render(diagnosticCollector.diagnostics(), path, source));
         return status;
     }
 
@@ -177,22 +171,17 @@ public class HaruCli implements Callable<Integer> {
 
         if (showInstructions) showInstructions(program.program());
         export(source, program.program());
-
-        runProgram(program);
         return 0;
     }
 
     private Optional<CompiledProgram> compile(String source, DiagnosticCollector diagnosticCollector, TranslationFile translationFile) {
-        var ic = new IdentifierCollector();
-        Optional<CompiledProgram> compile = Haru.compile(
+        return Haru.compile(
                 source,
                 diagnosticCollector,
-                ic,
+                null,
                 compiler -> compiler.withLocales(locales).declareExternalAll(externalVariables),
                 translationFile
         );
-        System.out.println(ic.occurrencesOf("aros"));
-        return compile;
     }
 
     private Optional<TranslationFile> importTranslationFile() {
@@ -204,67 +193,4 @@ public class HaruCli implements Callable<Integer> {
             throw new RuntimeException(e);
         }
     }
-
-    public static class ExampleDialoguePlayer extends AbstractDialoguePlayer {
-        public ExampleDialoguePlayer(@NotNull LinkedProgram program) throws DialogueException {
-            super(program, Map.of());
-        }
-
-        @Override
-        public void onSingleLine(Value[] args) {
-            System.out.println("Line: " + render(args));
-            resume();
-        }
-
-        @Override
-        public void onMultipleLines(Value[][] args) {
-            System.out.println("Parallel(");
-            for (Value[] arg : args) {
-                System.out.println("* Line: " + render(arg));
-            }
-            System.out.println(")");
-            resume();
-        }
-
-        private String render(Value arg) {
-            if (arg.isLiteralRef())
-                return program().program().literals()[arg.asLiteralRef()];
-            if (arg.isTextRef())
-                return program().program().translationFile().entries().get(arg.asTextRef()).translations().get("ru_ru");
-            return arg.asString();
-        }
-
-        private String render(Value[] args) {
-            StringBuilder builder = new StringBuilder();
-            for (Value arg : args) {
-                builder.append(render(arg)).append("; ");
-            }
-            return builder.toString();
-        }
-    }
-
-    private void runProgram(LinkedProgram program) {
-        System.out.println("\nRunning:");
-        try {
-            var player = new ExampleDialoguePlayer(program);
-            while (!player.isDone()) {
-                player.update();
-            }
-        } catch (DialogueException e) {
-            System.err.println(e.diagnostic());
-            throw new RuntimeException(e);
-        }
-    }
-
-//    private void printDiagnostics(@NotNull List<Diagnostic> diagnostics) {
-//        for (Diagnostic diagnostic : diagnostics) {
-//            StringBuilder msg = new StringBuilder();
-//            msg.append("[").append(diagnostic.severity()).append("] ").append(path.toString());
-//            if (diagnostic.span() != null) {
-//                msg.append(":").append(diagnostic.span().line()).append(":").append(diagnostic.span().column());
-//            }
-//            msg.append(": ").append(diagnostic.message());
-//            System.err.println(msg);
-//        }
-//    }
 }

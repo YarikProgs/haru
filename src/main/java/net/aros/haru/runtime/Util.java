@@ -2,6 +2,7 @@ package net.aros.haru.runtime;
 
 import net.aros.haru.compile.CompiledProgram;
 import net.aros.haru.diagnostic.Severity;
+import net.aros.haru.parse.ParsedText;
 import net.aros.haru.value.HaruFunction;
 import net.aros.haru.value.Value;
 import org.jetbrains.annotations.NotNull;
@@ -12,8 +13,16 @@ import java.util.Map;
 import java.util.Set;
 
 public class Util {
+    public static ParsedText getEntry(@NotNull CompiledProgram program, int index, String locale) {
+        var entry = program.translationFile().entries().get(index);
+        if (!entry.translations().containsKey(locale)) {
+            return entry.original();
+        }
+        return entry.translations().get(locale);
+    }
+
     public static void checkedCall(@NotNull AbstractDialoguePlayer player, int fn, Value[] args) throws DialogueException {
-        HaruFunction function = player.program().functions()[fn];
+        HaruFunction function = player.linkedProgram().functions()[fn];
 
         Value val = Value.nullValue();
         try {

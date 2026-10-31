@@ -1,5 +1,6 @@
 package net.aros.haru.ast;
 
+import net.aros.haru.runtime.DialogueException;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -26,15 +27,15 @@ public sealed interface TextPart {
     record Parts(List<TextPart> parts) implements TextPart {
     }
 
-    interface Visitor<T> {
-        T visitLiteral(Literal textPart);
-        T visitPlaceholder(Placeholder textPart);
-        T visitBiTag(BiTag textPart);
-        T visitTag(Tag textPart);
-        T visitParts(Parts textPart);
+    interface Visitor {
+        void visitLiteral(Literal textPart) throws DialogueException;
+        void visitPlaceholder(Placeholder textPart) throws DialogueException;
+        void visitBiTag(BiTag textPart) throws DialogueException;
+        void visitTag(Tag textPart) throws DialogueException;
+        void visitParts(Parts textPart) throws DialogueException;
 
-        default T visit(@NotNull TextPart textPart) {
-            return switch (textPart) {
+        default void visit(@NotNull TextPart textPart) throws DialogueException {
+            switch (textPart) {
                 case Literal literal -> visitLiteral(literal);
                 case Placeholder placeholder -> visitPlaceholder(placeholder);
                 case BiTag biTag -> visitBiTag(biTag);

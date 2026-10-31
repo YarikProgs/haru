@@ -8,23 +8,23 @@ public sealed interface Value permits NullValue, NumberValue, LiteralRefValue, T
     Value FALSE = number(0);
 
     default Value add(Value other) {
-        throw new IllegalStateException("Cannot ADD between " + asString() + " and " + other.asString());
+        throw new IllegalStateException("Cannot ADD between " + toString() + " and " + other.toString());
     }
 
     default Value mul(Value other) {
-        throw new IllegalStateException("Cannot MUL between " + asString() + " and " + other.asString());
+        throw new IllegalStateException("Cannot MUL between " + toString() + " and " + other.toString());
     }
 
     default Value div(Value other) {
-        throw new IllegalStateException("Cannot DIV between " + asString() + " and " + other.asString());
+        throw new IllegalStateException("Cannot DIV between " + toString() + " and " + other.toString());
     }
 
     default Value greater(Value other) {
-        throw new IllegalStateException("Cannot GREATER between " + asString() + " and " + other.asString());
+        throw new IllegalStateException("Cannot GREATER between " + toString() + " and " + other.toString());
     }
 
     default Value less(Value other) {
-        throw new IllegalStateException("Cannot LESS between " + asString() + " and " + other.asString());
+        throw new IllegalStateException("Cannot LESS between " + toString() + " and " + other.toString());
     }
 
     default Value and(Value second) {
@@ -38,14 +38,14 @@ public sealed interface Value permits NullValue, NumberValue, LiteralRefValue, T
     Value equal(Value other);
 
     default Value negate() {
-        throw new IllegalStateException("Cannot NEGATE " + asString());
+        throw new IllegalStateException("Cannot NEGATE " + this);
     }
 
     default Value invert() {
         return isFalsey() ? TRUE : FALSE;
     }
 
-    String asString();
+    String toString();
 
     default boolean isNumber() {
         return false;

@@ -69,7 +69,7 @@ public final class TranslationMerger {
      * @param text parsed text (double-quoted string)
      */
     public void addText(@NotNull ParsedText text) {
-        texts.add(new Collected(text.raw(), signatureOf(text.raw())));
+        texts.add(new Collected(text, signatureOf(text)));
     }
 
     public @NotNull TranslationFile merge() {
@@ -106,7 +106,7 @@ public final class TranslationMerger {
         // Everything old that was not matched is considered removed.
         // Old 'removed' comes first, so it keeps its position across compilations.
         List<TextEntry> removed = new ArrayList<>(oldRemoved);
-        Set<String> removedOriginals = new HashSet<>();
+        Set<ParsedText> removedOriginals = new HashSet<>();
         for (TextEntry entry : removed) removedOriginals.add(entry.original());
         for (TextEntry entry : oldEntries) {
             if (removedOriginals.add(entry.original())) removed.add(entry);
@@ -115,7 +115,7 @@ public final class TranslationMerger {
     }
 
     @Nullable
-    private TextEntry takeExact(List<TextEntry> pool, String raw) {
+    private TextEntry takeExact(List<TextEntry> pool, ParsedText raw) {
         for (Iterator<TextEntry> it = pool.iterator(); it.hasNext(); ) {
             TextEntry entry = it.next();
             if (entry.original().equals(raw)) {
@@ -138,7 +138,7 @@ public final class TranslationMerger {
         for (int i = 0; i < pool.size(); i++) {
             TextEntry entry = pool.get(i);
             if (!signatureOf(entry.original()).equals(text.signature())) continue;
-            double similarity = similarity(text.raw(), entry.original());
+            double similarity = similarity(text.raw().raw(), entry.original().raw());
             if (similarity > bestSimilarity) {
                 bestSimilarity = similarity;
                 best = entry;
@@ -152,8 +152,8 @@ public final class TranslationMerger {
     /**
      * The phrase was edited: writes the new original and makes every locale of the entry fuzzy.
      */
-    private @NotNull TextEntry markAllFuzzy(@NotNull TextEntry entry, @NotNull String newOriginal) {
-        Map<String, String> translations = new LinkedHashMap<>(entry.translations());
+    private @NotNull TextEntry markAllFuzzy(@NotNull TextEntry entry, @NotNull ParsedText newOriginal) {
+        Map<String, ParsedText> translations = new LinkedHashMap<>(entry.translations());
         List<String> fuzzy = new ArrayList<>(entry.fuzzy());
         for (String locale : translations.keySet()) {
             if (!fuzzy.contains(locale)) fuzzy.add(locale);
@@ -164,9 +164,9 @@ public final class TranslationMerger {
     /**
      * Adds every configured locale missing in 'translations' as a copy of the original, marking it fuzzy.
      */
-    private @NotNull TextEntry fillMissingLocales(@NotNull TextEntry entry, @NotNull String original) {
+    private @NotNull TextEntry fillMissingLocales(@NotNull TextEntry entry, @NotNull ParsedText original) {
         if (locales.isEmpty()) return entry;
-        Map<String, String> translations = new LinkedHashMap<>(entry.translations());
+        Map<String, ParsedText> translations = new LinkedHashMap<>(entry.translations());
         List<String> fuzzy = new ArrayList<>(entry.fuzzy());
         boolean changed = false;
         for (String locale : locales) {
@@ -205,7 +205,8 @@ public final class TranslationMerger {
      * Structure of a text: the sequence of placeholders and tags with their names and arguments.
      * Literal contents are ignored, so an edited phrase keeps the signature of its old version.
      */
-    private static String signatureOf(@NotNull String raw) {
+    private static String signatureOf(@NotNull ParsedText parsedText) {
+        String raw = parsedText.raw();
         // Old entries store only the raw text, so it is parsed again the same way TextParserTest does it
         Token token = new Token(TokenType.TEXT, SourceSpan.dot(1, 1), "\"" + raw + "\"", raw);
         return signature(new TextParser(new DiagnosticCollector(), null, token).parse().text());
@@ -233,6 +234,6 @@ public final class TranslationMerger {
         }
     }
 
-    private record Collected(String raw, String signature) {
+    private record Collected(ParsedText raw, String signature) {
     }
 }
