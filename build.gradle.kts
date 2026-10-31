@@ -25,6 +25,8 @@ dependencies {
     implementation("com.google.code.gson:gson:2.10.1")
 }
 
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
 tasks.shadowJar {
     archiveBaseName = "haru"
     archiveClassifier.set("")
