@@ -36,15 +36,6 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
         this.translationMerger = new TranslationMerger(oldTranslationFile);
     }
 
-    /**
-     * Locales that must be present in the 'translations' map of the resulting translation file.
-     * Missing locales are filled with a copy of the original and marked fuzzy.
-     */
-    public Compiler withLocales(@NotNull Collection<String> locales) {
-        translationMerger.withLocales(locales);
-        return this;
-    }
-
     public Compiler declareExternal(String name) {
         slots.put(name, slots.size());
         return this;

@@ -50,9 +50,6 @@ public class HaruCli implements Callable<Integer> {
     @CommandLine.Option(names = {"-f", "--force"}, description = "Always recompile even if fresh binary is present. Default: no")
     private boolean force;
 
-    @CommandLine.Option(arity = "0..", names = {"-l", "--locale"}, description = "Add locale into translation file")
-    private List<String> locales;
-
     @CommandLine.Option(arity = "0..", names = {"-e", "--external-var"}, description = "Declare external variable")
     private List<String> externalVariables;
 
@@ -87,8 +84,6 @@ public class HaruCli implements Callable<Integer> {
 
         if (externalVariables == null)
             externalVariables = List.of();
-        if (locales == null)
-            locales = List.of();
 
         return compileFile();
     }
@@ -179,7 +174,7 @@ public class HaruCli implements Callable<Integer> {
                 source,
                 diagnosticCollector,
                 null,
-                compiler -> compiler.withLocales(locales).declareExternalAll(externalVariables),
+                compiler -> compiler.declareExternalAll(externalVariables),
                 translationFile
         );
     }

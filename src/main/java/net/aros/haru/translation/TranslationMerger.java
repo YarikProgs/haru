@@ -11,11 +11,9 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -29,13 +27,14 @@ import java.util.Set;
  *     <li>every text occurrence gets its own entry - even if the phrase repeats in the source;</li>
  *     <li>entries are rebuilt in source order, so a phrase added in the middle is inserted
  *     in the middle of the file and the following phrases are shifted down;</li>
+ *     <li>a new phrase gets an entry with no translations: at runtime the original is used
+ *     until an editor adds a locale;</li>
  *     <li>an unchanged phrase keeps its translations and fuzzy locales;</li>
- *     <li>a deleted phrase falls into {@code removed};</li>
+ *     <li>a deleted phrase that had translations falls into {@code removed}
+ *     (entries without translations have nothing to preserve and are dropped);</li>
  *     <li>a phrase that returns after deletion is restored from {@code removed} with its translations;</li>
  *     <li>an edited phrase (same placeholders and tags, similar literals) keeps its translations,
- *     but gets the new original and every locale of the entry falls into {@code fuzzy};</li>
- *     <li>locales listed in {@link #withLocales(Collection)} are always present in {@code translations}:
- *     a missing one is filled with a copy of the original and marked fuzzy.</li>
+ *     but gets the new original and every translated locale of the entry falls into {@code fuzzy}.</li>
  * </ul>
  */
 public final class TranslationMerger {
@@ -48,20 +47,10 @@ public final class TranslationMerger {
     private final List<TextEntry> oldEntries;
     private final List<TextEntry> oldRemoved;
     private final List<Collected> texts = new ArrayList<>();
-    private final Set<String> locales = new LinkedHashSet<>();
 
     public TranslationMerger(@Nullable TranslationFile oldTranslationFile) {
         this.oldEntries = oldTranslationFile == null ? new ArrayList<>() : new ArrayList<>(oldTranslationFile.entries());
         this.oldRemoved = oldTranslationFile == null ? new ArrayList<>() : new ArrayList<>(oldTranslationFile.removed());
-    }
-
-    /**
-     * Locales that must always be present in the 'translations' map of every entry.
-     * A missing locale is filled with a copy of the original and added to 'fuzzy'.
-     */
-    public TranslationMerger withLocales(@NotNull Collection<String> locales) {
-        this.locales.addAll(locales);
-        return this;
     }
 
     /**
@@ -100,15 +89,17 @@ public final class TranslationMerger {
         for (int i = 0; i < texts.size(); i++) {
             TextEntry entry = resolved[i];
             if (entry == null) entry = new TextEntry(texts.get(i).raw(), new LinkedHashMap<>(), new ArrayList<>());
-            entries.add(fillMissingLocales(entry, texts.get(i).raw()));
+            entries.add(entry);
         }
 
-        // Everything old that was not matched is considered removed.
+        // Everything old that was not matched is considered removed,
+        // but only if it carries translations worth keeping.
         // Old 'removed' comes first, so it keeps its position across compilations.
         List<TextEntry> removed = new ArrayList<>(oldRemoved);
         Set<ParsedText> removedOriginals = new HashSet<>();
         for (TextEntry entry : removed) removedOriginals.add(entry.original());
         for (TextEntry entry : oldEntries) {
+            if (entry.translations().isEmpty()) continue;
             if (removedOriginals.add(entry.original())) removed.add(entry);
         }
         return new TranslationFile(List.copyOf(entries), List.copyOf(removed));
@@ -150,7 +141,8 @@ public final class TranslationMerger {
     }
 
     /**
-     * The phrase was edited: writes the new original and makes every locale of the entry fuzzy.
+     * The phrase was edited: writes the new original and makes every translated locale fuzzy.
+     * An entry without translations simply gets the new original.
      */
     private @NotNull TextEntry markAllFuzzy(@NotNull TextEntry entry, @NotNull ParsedText newOriginal) {
         Map<String, ParsedText> translations = new LinkedHashMap<>(entry.translations());
@@ -159,23 +151,6 @@ public final class TranslationMerger {
             if (!fuzzy.contains(locale)) fuzzy.add(locale);
         }
         return new TextEntry(newOriginal, translations, fuzzy);
-    }
-
-    /**
-     * Adds every configured locale missing in 'translations' as a copy of the original, marking it fuzzy.
-     */
-    private @NotNull TextEntry fillMissingLocales(@NotNull TextEntry entry, @NotNull ParsedText original) {
-        if (locales.isEmpty()) return entry;
-        Map<String, ParsedText> translations = new LinkedHashMap<>(entry.translations());
-        List<String> fuzzy = new ArrayList<>(entry.fuzzy());
-        boolean changed = false;
-        for (String locale : locales) {
-            if (translations.containsKey(locale)) continue;
-            translations.put(locale, original);
-            if (!fuzzy.contains(locale)) fuzzy.add(locale);
-            changed = true;
-        }
-        return changed ? new TextEntry(entry.original(), translations, fuzzy) : entry;
     }
 
     private static double similarity(@NotNull String a, @NotNull String b) {
