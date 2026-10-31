@@ -3,6 +3,7 @@ package net.aros.haru.runtime;
 import net.aros.haru.compile.CompiledProgram;
 import net.aros.haru.diagnostic.Severity;
 import net.aros.haru.parse.ParsedText;
+import net.aros.haru.translation.TextEntry;
 import net.aros.haru.value.HaruFunction;
 import net.aros.haru.value.Value;
 import org.jetbrains.annotations.NotNull;
@@ -13,12 +14,16 @@ import java.util.Map;
 import java.util.Set;
 
 public class Util {
-    public static ParsedText getEntry(@NotNull CompiledProgram program, int index, String locale) {
+    public static ParsedText getEntry(@NotNull CompiledProgram program, int index, String locale, FuzzyPolicy fuzzyPolicy) {
         var entry = program.translationFile().entries().get(index);
-        if (!entry.translations().containsKey(locale)) {
+        if (!entry.translations().containsKey(locale) || fuzzySkips(entry, locale, fuzzyPolicy)) {
             return entry.original();
         }
         return entry.translations().get(locale);
+    }
+
+    private static boolean fuzzySkips(TextEntry entry, String locale, FuzzyPolicy fuzzyPolicy) {
+        return fuzzyPolicy == FuzzyPolicy.USE_ORIGINAL && entry.fuzzy().contains(locale);
     }
 
     public static void checkedCall(@NotNull AbstractDialoguePlayer player, int fn, Value[] args) throws DialogueException {

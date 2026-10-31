@@ -16,17 +16,20 @@ public abstract class AbstractDialoguePlayer {
     private final Deque<Integer> callStack = new ArrayDeque<>();
     private final Value[] slots;
     private final AbstractTextRenderer.Factory textRendererFactory;
+    private final FuzzyPolicy fuzzyPolicy;
     private int ip;
     private boolean done, suspended;
 
     public AbstractDialoguePlayer(
             @NotNull LinkedProgram linkedProgram,
-            Map<String, Value> externalVariables,
-            AbstractTextRenderer.Factory textRendererFactory
+            @NotNull Map<String, Value> externalVariables,
+            @NotNull AbstractTextRenderer.Factory textRendererFactory,
+            @NotNull FuzzyPolicy fuzzyPolicy
     ) throws DialogueException {
-        this.linkedProgram = linkedProgram;
+        this.linkedProgram = Objects.requireNonNull(linkedProgram);
         this.slots = new Value[linkedProgram.program().slots().size()];
         this.textRendererFactory = Objects.requireNonNull(textRendererFactory);
+        this.fuzzyPolicy = Objects.requireNonNull(fuzzyPolicy);
         Arrays.fill(slots, Value.nullValue());
         Util.checkSlots(linkedProgram.program(), externalVariables);
         Util.mergeSlots(linkedProgram.program(), slots, externalVariables);
@@ -53,7 +56,7 @@ public abstract class AbstractDialoguePlayer {
         if (value.isLiteralRef())
             return linkedProgram.program().literals()[value.asLiteralRef()];
         else if (value.isTextRef())
-            return renderText(Util.getEntry(linkedProgram.program(), value.asTextRef(), locale).text(), locale);
+            return renderText(Util.getEntry(linkedProgram.program(), value.asTextRef(), locale, fuzzyPolicy).text(), locale);
         else
             return value.toString();
     }
