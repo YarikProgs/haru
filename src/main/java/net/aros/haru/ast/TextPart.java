@@ -41,7 +41,7 @@ public sealed interface TextPart {
                 case BiTag biTag -> visitBiTag(biTag);
                 case Tag tag -> visitTag(tag);
                 case Parts parts -> visitParts(parts);
-            };
+            }
         }
     }
 }

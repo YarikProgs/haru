@@ -8,23 +8,23 @@ public sealed interface Value permits NullValue, NumberValue, LiteralRefValue, T
     Value FALSE = number(0);
 
     default Value add(Value other) {
-        throw new IllegalStateException("Cannot ADD between " + toString() + " and " + other.toString());
+        throw new IllegalStateException("Cannot ADD between " + this + " and " + other.toString());
     }
 
     default Value mul(Value other) {
-        throw new IllegalStateException("Cannot MUL between " + toString() + " and " + other.toString());
+        throw new IllegalStateException("Cannot MUL between " + this + " and " + other.toString());
     }
 
     default Value div(Value other) {
-        throw new IllegalStateException("Cannot DIV between " + toString() + " and " + other.toString());
+        throw new IllegalStateException("Cannot DIV between " + this + " and " + other.toString());
     }
 
     default Value greater(Value other) {
-        throw new IllegalStateException("Cannot GREATER between " + toString() + " and " + other.toString());
+        throw new IllegalStateException("Cannot GREATER between " + this + " and " + other.toString());
     }
 
     default Value less(Value other) {
-        throw new IllegalStateException("Cannot LESS between " + toString() + " and " + other.toString());
+        throw new IllegalStateException("Cannot LESS between " + this + " and " + other.toString());
     }
 
     default Value and(Value second) {
@@ -65,10 +65,6 @@ public sealed interface Value permits NullValue, NumberValue, LiteralRefValue, T
 
     default double asNumber() {
         throw new IllegalStateException("Not a number");
-    }
-
-    default boolean asBool() {
-        throw new IllegalStateException("Not a bool");
     }
 
     default int asTextRef() {

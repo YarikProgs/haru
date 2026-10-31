@@ -1,5 +1,7 @@
 package net.aros.haru.value;
 
+import org.jetbrains.annotations.NotNull;
+
 record TextRefValue(int index) implements Value {
     @Override
     public Value equal(Value other) {
@@ -7,7 +9,7 @@ record TextRefValue(int index) implements Value {
     }
 
     @Override
-    public String toString() {
+    public @NotNull String toString() {
         return "<text #" + index + ">";
     }
 
