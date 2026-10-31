@@ -26,6 +26,7 @@ dependencies {
 }
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+java.withSourcesJar()
 
 tasks.shadowJar {
     archiveBaseName = "haru"
