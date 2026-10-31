@@ -19,11 +19,11 @@ public class Util {
         if (!entry.translations().containsKey(locale) || fuzzySkips(entry, locale, fuzzyPolicy)) {
             return entry.original();
         }
-        return entry.translations().get(locale);
+        return entry.translations().get(locale).parsedText();
     }
 
     private static boolean fuzzySkips(TextEntry entry, String locale, FuzzyPolicy fuzzyPolicy) {
-        return fuzzyPolicy == FuzzyPolicy.USE_ORIGINAL && entry.fuzzy().contains(locale);
+        return fuzzyPolicy == FuzzyPolicy.USE_ORIGINAL && entry.translations().get(locale).fuzzy();
     }
 
     public static void checkedCall(@NotNull AbstractDialoguePlayer player, int fn, Value[] args) throws DialogueException {

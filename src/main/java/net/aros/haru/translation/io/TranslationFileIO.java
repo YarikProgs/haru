@@ -3,6 +3,7 @@ package net.aros.haru.translation.io;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import net.aros.haru.parse.ParsedText;
+import net.aros.haru.translation.Translation;
 import net.aros.haru.translation.TranslationFile;
 
 import java.io.*;
@@ -15,6 +16,8 @@ public class TranslationFileIO {
             .serializeNulls()
             .registerTypeAdapter(ParsedText.class, new ParsedText.Serializer())
             .registerTypeAdapter(ParsedText.class, new ParsedText.Deserializer())
+            .registerTypeAdapter(Translation.class, new Translation.Serializer())
+            .registerTypeAdapter(Translation.class, new Translation.Deserializer())
             .create();
 
     public static Optional<TranslationFile> importFile(InputStream inputStream) {

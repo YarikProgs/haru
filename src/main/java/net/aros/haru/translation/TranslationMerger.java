@@ -29,12 +29,12 @@ import java.util.Set;
  *     in the middle of the file and the following phrases are shifted down;</li>
  *     <li>a new phrase gets an entry with no translations: at runtime the original is used
  *     until an editor adds a locale;</li>
- *     <li>an unchanged phrase keeps its translations and fuzzy locales;</li>
+ *     <li>an unchanged phrase keeps its translations (including their fuzzy flags);</li>
  *     <li>a deleted phrase that had translations falls into {@code removed}
  *     (entries without translations have nothing to preserve and are dropped);</li>
  *     <li>a phrase that returns after deletion is restored from {@code removed} with its translations;</li>
  *     <li>an edited phrase (same placeholders and tags, similar literals) keeps its translations,
- *     but gets the new original and every translated locale of the entry falls into {@code fuzzy}.</li>
+ *     but gets the new original and every translation becomes fuzzy.</li>
  * </ul>
  */
 public final class TranslationMerger {
@@ -88,7 +88,7 @@ public final class TranslationMerger {
         List<TextEntry> entries = new ArrayList<>();
         for (int i = 0; i < texts.size(); i++) {
             TextEntry entry = resolved[i];
-            if (entry == null) entry = new TextEntry(texts.get(i).raw(), new LinkedHashMap<>(), new ArrayList<>());
+            if (entry == null) entry = new TextEntry(texts.get(i).raw(), new LinkedHashMap<>());
             entries.add(entry);
         }
 
@@ -141,16 +141,15 @@ public final class TranslationMerger {
     }
 
     /**
-     * The phrase was edited: writes the new original and makes every translated locale fuzzy.
+     * The phrase was edited: writes the new original and makes every translation fuzzy.
      * An entry without translations simply gets the new original.
      */
     private @NotNull TextEntry markAllFuzzy(@NotNull TextEntry entry, @NotNull ParsedText newOriginal) {
-        Map<String, ParsedText> translations = new LinkedHashMap<>(entry.translations());
-        List<String> fuzzy = new ArrayList<>(entry.fuzzy());
-        for (String locale : translations.keySet()) {
-            if (!fuzzy.contains(locale)) fuzzy.add(locale);
+        Map<String, Translation> translations = new LinkedHashMap<>();
+        for (Map.Entry<String, Translation> e : entry.translations().entrySet()) {
+            translations.put(e.getKey(), new Translation(e.getValue().parsedText(), true));
         }
-        return new TextEntry(newOriginal, translations, fuzzy);
+        return new TextEntry(newOriginal, translations);
     }
 
     private static double similarity(@NotNull String a, @NotNull String b) {
