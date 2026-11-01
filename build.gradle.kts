@@ -1,18 +1,14 @@
 plugins {
     id("java")
     id("com.gradleup.shadow") version "9.0.0"
+    `maven-publish`
 }
 
 group = "net.aros"
-version = "1.0.0-beta"
+version = "1.0.0-beta.2"
 
 repositories {
     mavenCentral()
-
-    maven {
-        name = "Minecraft Libraries"
-        url = uri("https://libraries.minecraft.net")
-    }
 }
 
 dependencies {
@@ -30,8 +26,7 @@ java.withSourcesJar()
 
 tasks.shadowJar {
     archiveBaseName = "haru"
-    archiveClassifier.set("")
-    archiveVersion.set("")
+    archiveClassifier.set("cli")
     manifest {
         attributes["Main-Class"] = "net.aros.haru.HaruCli"
     }
@@ -42,7 +37,14 @@ tasks.shadowJar {
         }
     })
     exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA")
-    exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA")
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("mavenJava") {
+            from(components["java"])
+        }
+    }
 }
 
 tasks.test {
