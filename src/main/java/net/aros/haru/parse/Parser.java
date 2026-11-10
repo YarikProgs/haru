@@ -5,6 +5,7 @@ import net.aros.haru.ast.Expr;
 import net.aros.haru.ast.Program;
 import net.aros.haru.ast.Stmt;
 import net.aros.haru.diagnostic.DiagnosticCollector;
+import net.aros.haru.diagnostic.SourceSpan;
 import net.aros.haru.lex.IdentifierCollector;
 import net.aros.haru.lex.Token;
 import net.aros.haru.lex.TokenType;
@@ -47,6 +48,7 @@ public class Parser {
 
     private Stmt declStatement() {
         if (match(LET)) return declaration();
+        if (match(EXPORT)) return export();
         if (match(IDENTIFIER)) {
             Token ident = previous();
             if (check(LBRACE)) return new Stmt.NamedBlock(ident, block());
@@ -82,6 +84,16 @@ public class Parser {
         var expr = expression();
         consume(SEMICOLON, "Expect ';' after expression");
         return new Stmt.Declaration(let, name, expr);
+    }
+
+    @Contract(" -> new")
+    private @NotNull Stmt export() {
+        Token export = previous();
+        Token name = consume(IDENTIFIER, "Expect variable name after 'export'");
+        consume(EQUAL, "Expect '=' after expression");
+        var expr = expression();
+        consume(SEMICOLON, "Expect ';' after expression");
+        return new Stmt.Export(export, name, expectLiteral(expr));
     }
 
     @Contract(" -> new")
@@ -191,6 +203,15 @@ public class Parser {
         throw error(peek(), "Expect expression");
     }
 
+    private Expr.Literal expectLiteral(Expr expr) {
+        if (expr instanceof Expr.Literal literal) return literal;
+
+        Token tok = expr.firstToken();
+        //noinspection ThrowableNotThrown
+        error(tok == null ? previous() : tok, expr.span(), "Expected literal");
+        return new Expr.Literal(null, null);
+    }
+
     private Expr leftAssociative(@NotNull Supplier<Expr> childSupplier, TokenType... ops) {
         Expr expr = childSupplier.get();
         while (match(ops)) {
@@ -224,12 +245,17 @@ public class Parser {
 
     @Contract("_, _ -> new")
     private @NotNull ParseError error(@NotNull Token token, String message) {
+        return error(token, token.span(), message);
+    }
+
+    @Contract("_, _, _ -> new")
+    private @NotNull ParseError error(@NotNull Token startingToken, @NotNull SourceSpan span, String message) {
         String errorMessage;
-        if (token.type() == EOF)
+        if (startingToken.type() == EOF)
             errorMessage = message + " at end";
         else
-            errorMessage = message + " at '" + token.lexeme() + "'";
-        diagnosticCollector.error(errorMessage, token.span());
+            errorMessage = message + " at '" + startingToken.lexeme() + "'";
+        diagnosticCollector.error(errorMessage, span);
         return new ParseError();
     }
 

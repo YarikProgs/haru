@@ -2,7 +2,6 @@ package net.aros.haru.runtime;
 
 import net.aros.haru.ast.TextPart;
 import net.aros.haru.compile.CompiledProgram;
-import net.aros.haru.diagnostic.Severity;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -62,12 +61,7 @@ public abstract class AbstractTextRenderer implements TextPart.Visitor {
         Integer slot = program().slots().get(variableName);
         if (slot != null)
             return slot;
-        throw new DialogueException(new RuntimeDiagnostic(
-                Severity.ERROR,
-                RuntimeDiagnostic.ErrorCode.UNKNOWN_VARIABLE,
-                "Unknown variable: '" + variableName + "'",
-                null
-        ));
+        throw new DialogueException("Unknown variable: '" + variableName + "'");
     }
 
     public interface Factory {

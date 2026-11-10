@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "net.aros"
-version = "1.0.0-beta.2"
+version = "1.0.1-beta.1"
 
 repositories {
     mavenCentral()

@@ -4,6 +4,7 @@ import net.aros.haru.diagnostic.SourceSpan;
 import net.aros.haru.lex.Token;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
@@ -22,6 +23,12 @@ public sealed interface Expr {
     boolean isPure();
 
     /**
+     * @return token that starts the expression
+     */
+    @Nullable
+    Token firstToken();
+
+    /**
      * An expression that represents a variable
      * <p>
      * Example: {@code a}
@@ -37,6 +44,11 @@ public sealed interface Expr {
         @Override
         public boolean isPure() {
             return true;
+        }
+
+        @Override
+        public @Nullable Token firstToken() {
+            return name;
         }
     }
 
@@ -56,6 +68,11 @@ public sealed interface Expr {
         @Override
         public boolean isPure() {
             return true;
+        }
+
+        @Override
+        public @Nullable Token firstToken() {
+            return token;
         }
     }
 
@@ -77,6 +94,11 @@ public sealed interface Expr {
         public boolean isPure() {
             return false;
         }
+
+        @Override
+        public @Nullable Token firstToken() {
+            return callee;
+        }
     }
 
     record Binary(Expr lhs, Token op, Expr rhs) implements Expr {
@@ -90,6 +112,11 @@ public sealed interface Expr {
         public boolean isPure() {
             return lhs.isPure() && rhs.isPure();
         }
+
+        @Override
+        public @Nullable Token firstToken() {
+            return lhs.firstToken();
+        }
     }
 
     record Unary(Token op, Expr rhs) implements Expr {
@@ -102,6 +129,11 @@ public sealed interface Expr {
         @Override
         public boolean isPure() {
             return rhs.isPure();
+        }
+
+        @Override
+        public @Nullable Token firstToken() {
+            return op;
         }
     }
 

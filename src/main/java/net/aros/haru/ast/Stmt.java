@@ -47,7 +47,7 @@ public sealed interface Stmt {
     /**
      * A statement that represents a declaration
      * <p>
-     * Examples: {@code let a = 20}, {@code let importance = 100}
+     * Examples: {@code let a = 20}
      *
      * @param name  name of the variable
      * @param value constant of the variable
@@ -57,6 +57,22 @@ public sealed interface Stmt {
         @Override
         public @NotNull SourceSpan span() {
             return new SourceSpan(let.span().start(), value.span().end());
+        }
+    }
+
+    /**
+     * A statement that represents an export
+     * <p>
+     * Examples: {@code export importance = 100}
+     * @param name  name of the exported variable
+     * @param value constant of the exported variable
+     */
+
+    record Export(Token export, Token name, Expr.Literal value) implements Stmt {
+        @Contract(" -> new")
+        @Override
+        public @NotNull SourceSpan span() {
+            return new SourceSpan(export.span().start(), value.span().end());
         }
     }
 
@@ -130,6 +146,8 @@ public sealed interface Stmt {
 
         void visitDeclaration(Declaration stmt);
 
+        void visitExport(Export stmt);
+
         void visitExprStmt(ExprStmt stmt);
 
         void visitEnd(End stmt);
@@ -145,6 +163,7 @@ public sealed interface Stmt {
                 case Line line -> visitLine(line);
                 case System system -> visitSystem(system);
                 case Declaration decl -> visitDeclaration(decl);
+                case Export export -> visitExport(export);
                 case ExprStmt exprStmt -> visitExprStmt(exprStmt);
                 case End end -> visitEnd(end);
                 case NamedBlock nb -> visitNamedBlock(nb);

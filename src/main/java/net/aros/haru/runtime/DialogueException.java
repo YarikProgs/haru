@@ -1,14 +1,13 @@
 package net.aros.haru.runtime;
 
-public class DialogueException extends Exception {
-    private final RuntimeDiagnostic diagnostic;
+import org.jetbrains.annotations.Nullable;
 
-    public DialogueException(RuntimeDiagnostic diagnostic) {
-        super(null, null, false, false);
-        this.diagnostic = diagnostic;
+public class DialogueException extends Exception {
+    public DialogueException(String message, @Nullable Throwable cause) {
+        super(message, cause, false, false);
     }
 
-    public RuntimeDiagnostic diagnostic() {
-        return diagnostic;
+    public DialogueException(String message) {
+        this(message, null);
     }
 }

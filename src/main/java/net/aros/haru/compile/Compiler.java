@@ -23,6 +23,7 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
     private final Map<String, Integer> slots = new HashMap<>();
     private final Map<String, Integer> functionSlots = new HashMap<>();
     private final List<String> literals = new ArrayList<>();
+    private final Map<String, Value> exports = new HashMap<>();
     private final List<Stmt.NamedBlock> pendingBlocks = new ArrayList<>();
     private final Map<String, Integer> blockAddresses = new HashMap<>();
     private final List<DoSite> doSites = new ArrayList<>();
@@ -59,8 +60,9 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
                 instructions.toArray(Instruction[]::new),
                 translationMerger.merge(),
                 literals.toArray(String[]::new),
-                Map.copyOf(slots),
-                Map.copyOf(functionSlots)
+                Collections.unmodifiableMap(exports),
+                Collections.unmodifiableMap(slots),
+                Collections.unmodifiableMap(functionSlots)
         );
     }
 
@@ -107,14 +109,7 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
 
     @Override
     public void visitLiteral(Expr.@NotNull Literal expr) {
-        Value value = switch (expr.value()) {
-            case Double d -> Value.number(d);
-            case String s -> Value.literalRef(addLiteral(s));
-            case ParsedText text -> Value.textRef(addTextPart(text));
-            case null -> Value.nullValue();
-            default -> throw new IllegalArgumentException("Unknown literal type: " + expr.value().getClass());
-        };
-        emit(new Instruction.PushConst(value));
+        emit(new Instruction.PushConst(toValue(expr.value())));
     }
 
     @Override
@@ -246,6 +241,17 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
     }
 
     @Override
+    public void visitExport(Stmt.Export stmt) {
+        String name = stmt.name().lexeme();
+        if (exports.containsKey(name)) {
+            diagnosticCollector.error("Export '" + name + "' already defined", stmt.name().span());
+            compilationFailed = true;
+            return;
+        }
+        exports.put(name, toValue(stmt.value().value()));
+    }
+
+    @Override
     public void visitIf(Stmt.@NotNull If stmt) {
         visit(stmt.cond());
         int jumpToElse = emitJump(new Instruction.JumpIfFalse(-1));
@@ -283,6 +289,16 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
 
     private void emit(Instruction instruction) {
         instructions.add(instruction);
+    }
+
+    private Value toValue(Object object) {
+        return switch (object) {
+            case Double d -> Value.number(d);
+            case String s -> Value.literalRef(addLiteral(s));
+            case ParsedText text -> Value.textRef(addTextPart(text));
+            case null -> Value.nullValue();
+            default -> throw new IllegalArgumentException("Unknown literal type: " + object.getClass());
+        };
     }
 
     private record DoSite(int index, Token name) {}

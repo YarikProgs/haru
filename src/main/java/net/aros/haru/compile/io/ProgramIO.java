@@ -4,6 +4,7 @@ import net.aros.haru.compile.CompiledProgram;
 import net.aros.haru.compile.Instruction;
 import net.aros.haru.diagnostic.DiagnosticCollector;
 import net.aros.haru.translation.TranslationFile;
+import net.aros.haru.value.Value;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
@@ -14,15 +15,16 @@ import java.util.Map;
 
 public class ProgramIO {
     private static final byte[] MAGIC = {(byte) 0x89, 'H', 'A', 'R', 'U', 0x0D, 0x0A, 0x1A};
-    private static final short FORMAT_VERSION = 0;
+    private static final short FORMAT_VERSION = 1;
 
-    public static void exportFile(String source, CompiledProgram program, OutputStream stream) throws IOException {
+    public static void exportFile(String source, @NotNull CompiledProgram program, OutputStream stream) throws IOException {
         DataOutputStream dos = new DataOutputStream(stream);
 
         dos.write(MAGIC);
         dos.writeShort(FORMAT_VERSION);
         dos.write(IOUtil.hash(source));
         writeLiterals(dos, program.literals());
+        writeExports(dos, program.exports());
         writeSlots(dos, program.slots());
         writeSlots(dos, program.functionSlots());
         InstructionIO.writeInstructions(dos, program.instructions());
@@ -39,11 +41,12 @@ public class ProgramIO {
         DataInputStream dis = new DataInputStream(stream);
 
         String[] literals = readLiterals(dis);
+        Map<String, Value> exports = readExports(dis);
         Map<String, Integer> slots = readSlots(dis);
         Map<String, Integer> functionSlots = readSlots(dis);
         Instruction[] instructions = InstructionIO.readInstructions(dis);
 
-        return new CompiledProgram(instructions, translationFile, literals, slots, functionSlots);
+        return new CompiledProgram(instructions, translationFile, literals, exports, slots, functionSlots);
     }
 
     public static boolean isFreshHeader(String source, InputStream stream, DiagnosticCollector diagnosticCollector) throws IOException {
@@ -60,7 +63,7 @@ public class ProgramIO {
         return Arrays.equals(IOUtil.hash(source), hash);
     }
 
-    private static boolean validateMagic(DataInputStream dis, DiagnosticCollector diagnosticCollector) throws IOException {
+    private static boolean validateMagic(@NotNull DataInputStream dis, DiagnosticCollector diagnosticCollector) throws IOException {
         byte[] buf = new byte[MAGIC.length];
         dis.readFully(buf);
         if (!Arrays.equals(buf, MAGIC)) {
@@ -70,7 +73,7 @@ public class ProgramIO {
         return true;
     }
 
-    private static void writeLiterals(DataOutputStream dos, String[] literals) throws IOException {
+    private static void writeLiterals(@NotNull DataOutputStream dos, String @NotNull [] literals) throws IOException {
         dos.writeInt(literals.length);
         for (String literal : literals) {
             IOUtil.writeString(dos, literal);
@@ -85,7 +88,24 @@ public class ProgramIO {
         return literals;
     }
 
-    private static void writeSlots(DataOutputStream dos, Map<String, Integer> slots) throws IOException {
+    private static void writeExports(@NotNull DataOutputStream dos, @NotNull Map<String, Value> slots) throws IOException {
+        dos.writeInt(slots.size());
+        for (Map.Entry<String, Value> entry : slots.entrySet()) {
+            IOUtil.writeString(dos, entry.getKey());
+            ValueIO.writeValue(dos, entry.getValue());
+        }
+    }
+
+    private static @NotNull Map<String, Value> readExports(@NotNull DataInputStream dis) throws IOException {
+        int cap = IOUtil.readLen(dis);
+        Map<String, Value> exports = new HashMap<>(cap);
+        for (int i = 0; i < cap; i++) {
+            exports.put(IOUtil.readString(dis), ValueIO.readValue(dis));
+        }
+        return exports;
+    }
+
+    private static void writeSlots(@NotNull DataOutputStream dos, @NotNull Map<String, Integer> slots) throws IOException {
         dos.writeInt(slots.size());
         for (Map.Entry<String, Integer> entry : slots.entrySet()) {
             IOUtil.writeString(dos, entry.getKey());
@@ -94,7 +114,7 @@ public class ProgramIO {
     }
 
     private static @NotNull Map<String, Integer> readSlots(DataInputStream dis) throws IOException {
-        int cap = dis.readInt();
+        int cap = IOUtil.readLen(dis);
         Map<String, Integer> slots = new HashMap<>(cap);
         for (int i = 0; i < cap; i++) {
             slots.put(IOUtil.readString(dis), dis.readInt());

@@ -3,7 +3,6 @@ package net.aros.haru.runtime;
 import net.aros.haru.ast.TextPart;
 import net.aros.haru.compile.Instruction;
 import net.aros.haru.link.LinkedProgram;
-import net.aros.haru.runtime.RuntimeDiagnostic.ErrorCode;
 import net.aros.haru.value.Value;
 import org.jetbrains.annotations.NotNull;
 
@@ -86,7 +85,7 @@ public abstract class AbstractDialoguePlayer {
 
     public final void enterBlock(int target) throws DialogueException {
         if (callStack.size() >= MAX_CALL_DEPTH)
-            Util.error(ErrorCode.CALL_DEPTH_EXCEEDED, "Block call depth exceeded (recursion?)");
+            throw new DialogueException("Block call depth exceeded (recursion?)");
         callStack.push(ip);
         ip = target;
     }

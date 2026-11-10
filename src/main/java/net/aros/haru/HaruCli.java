@@ -44,8 +44,8 @@ public class HaruCli implements Callable<Integer> {
     @CommandLine.Option(names = {"-o", "--output"}, description = "Path to the binary file. Default: <path>.haruc")
     private Path outputPath;
 
-    @CommandLine.Option(names = {"-i", "--show-instructions"}, description = "Show instructions on compilation. Default: no")
-    private boolean showInstructions;
+    @CommandLine.Option(names = {"-p", "--show-program"}, description = "Show program on successful compilation. Default: no")
+    private boolean showProgram;
 
     @CommandLine.Option(names = {"-f", "--force"}, description = "Always recompile even if fresh binary is present. Default: no")
     private boolean force;
@@ -57,11 +57,30 @@ public class HaruCli implements Callable<Integer> {
         System.exit(new CommandLine(new HaruCli()).execute(args));
     }
 
-    private void showInstructions(@NotNull CompiledProgram program) {
-        System.out.println("\nInstructions:");
-        for (Instruction instruction : program.instructions()) {
-            System.out.println("* " + instruction);
-        }
+    private void showProgram(@NotNull CompiledProgram program) {
+        showCategory("  Instructions  ", () -> {
+            for (Instruction instruction : program.instructions()) {
+                System.out.println("* " + instruction);
+            }
+        });
+        showCategory("    Literals    ", () -> {
+            for (String literal : program.literals()) {
+                System.out.println("* " + literal);
+            }
+        });
+        showCategory("    Exports     ", ()
+                -> program.exports().forEach((name, value) -> System.out.println("* " + name + " = " + value)));
+        showCategory("     Slots      ", ()
+                -> program.slots().forEach((name, slot) -> System.out.println("* " + name + " = " + slot)));
+        showCategory(" Function slots ", ()
+                -> program.functionSlots().forEach((name, slot) -> System.out.println("* " + name + " = " + slot)));
+    }
+
+    private static void showCategory(String category, Runnable printing) {
+        System.out.println("\n===" + category + "===");
+        System.out.println("-----------------------");
+        printing.run();
+        System.out.println("-----------------------");
     }
 
     private void export(String source, CompiledProgram program) {
@@ -164,7 +183,7 @@ public class HaruCli implements Callable<Integer> {
         LinkedProgram program = Haru.link(compiledProgram.get(), diagnosticCollector, UnaryOperator.identity()).orElse(null);
         if (program == null) return EX_DATAERR;
 
-        if (showInstructions) showInstructions(program.program());
+        if (showProgram) showProgram(program.program());
         export(source, program.program());
         return 0;
     }
