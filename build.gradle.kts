@@ -6,7 +6,7 @@ plugins {
 
 group = "net.aros"
 // Переопределяется из CI релизным тегом: ./gradlew ... -PreleaseVersion=1.2.3
-version = providers.gradleProperty("releaseVersion").getOrElse("1.0.1-beta.1")
+version = providers.gradleProperty("releaseVersion").getOrElse("1.0.2-beta.1")
 
 repositories {
     mavenCentral()

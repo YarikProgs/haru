@@ -49,6 +49,7 @@ public class Parser {
     private Stmt declStatement() {
         if (match(LET)) return declaration();
         if (match(EXPORT)) return export();
+        if (match(EXTERN)) return extern();
         if (match(IDENTIFIER)) {
             Token ident = previous();
             if (check(LBRACE)) return new Stmt.NamedBlock(ident, block());
@@ -72,16 +73,16 @@ public class Parser {
 
     @Contract(" -> new")
     private @NotNull Stmt doBlock() {
-        Token ident = consume(IDENTIFIER, "Expect name of block after 'do'");
-        consume(SEMICOLON, "Expect ';' after block name");
+        Token ident = consume(IDENTIFIER, "Expect names of block after 'do'");
+        consume(SEMICOLON, "Expect ';' after block names");
         return new Stmt.Do(ident);
     }
 
     @Contract(" -> new")
     private @NotNull Stmt declaration() {
         Token let = previous();
-        Token name = consume(IDENTIFIER, "Expect variable name after 'let'");
-        consume(EQUAL, "Expect '=' after variable name");
+        Token name = consume(IDENTIFIER, "Expect variable names after 'let'");
+        consume(EQUAL, "Expect '=' after variable names");
         var expr = expression();
         consume(SEMICOLON, "Expect ';' after expression");
         return new Stmt.Declaration(let, name, expr);
@@ -90,11 +91,22 @@ public class Parser {
     @Contract(" -> new")
     private @NotNull Stmt export() {
         Token export = previous();
-        Token name = consume(IDENTIFIER, "Expect variable name after 'export'");
+        Token name = consume(IDENTIFIER, "Expect variable names after 'export'");
         consume(EQUAL, "Expect '=' after expression");
         var expr = expression();
         consume(SEMICOLON, "Expect ';' after expression");
         return new Stmt.Export(export, name, expectLiteral(expr));
+    }
+
+    private Stmt extern() {
+        Token extern = previous();
+        List<Token> names = new ArrayList<>();
+        names.add(consume(IDENTIFIER, "Expect variable names after 'extern'"));
+        while (match(COMMA)) {
+            names.add(consume(IDENTIFIER, "Expect variable names after comma"));
+        }
+        consume(SEMICOLON, "Expect ';' after expression");
+        return new Stmt.Extern(extern, names);
     }
 
     @Contract(" -> new")

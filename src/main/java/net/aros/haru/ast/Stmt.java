@@ -26,7 +26,7 @@ public sealed interface Stmt {
         @Contract(" -> new")
         @Override
         public @NotNull SourceSpan span() {
-            if (items.isEmpty()) throw new IllegalArgumentException("Illegal line with no items");
+            if (items.isEmpty()) throw new IllegalArgumentException("Illegal or synthetic line with no items");
             return new SourceSpan(items.getFirst().span().start(), items.getLast().span().end());
         }
     }
@@ -37,9 +37,10 @@ public sealed interface Stmt {
      * @param lines lines that will be shown parallel
      */
     record System(Token parallel, List<Line> lines, Token rbrace) implements Stmt {
+        @Contract(" -> new")
         @Override
-        public SourceSpan span() {
-            if (lines.isEmpty()) throw new IllegalArgumentException("System with no lines");
+        public @NotNull SourceSpan span() {
+            if (lines.isEmpty()) throw new IllegalArgumentException("Illegal or synthetic system with no lines");
             return new SourceSpan(parallel.span().start(), rbrace.span().end());
         }
     }
@@ -49,7 +50,7 @@ public sealed interface Stmt {
      * <p>
      * Examples: {@code let a = 20}
      *
-     * @param name  name of the variable
+     * @param name  names of the variable
      * @param value constant of the variable
      */
     record Declaration(Token let, Token name, Expr value) implements Stmt {
@@ -64,7 +65,8 @@ public sealed interface Stmt {
      * A statement that represents an export
      * <p>
      * Examples: {@code export importance = 100}
-     * @param name  name of the exported variable
+     *
+     * @param name  names of the exported variable
      * @param value constant of the exported variable
      */
 
@@ -73,6 +75,15 @@ public sealed interface Stmt {
         @Override
         public @NotNull SourceSpan span() {
             return new SourceSpan(export.span().start(), value.span().end());
+        }
+    }
+
+    record Extern(Token external, List<Token> names) implements Stmt {
+        @Contract(" -> new")
+        @Override
+        public @NotNull SourceSpan span() {
+            if (names.isEmpty()) throw new IllegalStateException("Illegal or synthetic extern with no variables");
+            return new SourceSpan(external.span().start(), names.getLast().span().end());
         }
     }
 
@@ -131,7 +142,7 @@ public sealed interface Stmt {
         @Contract(" -> new")
         public @NotNull SourceSpan span() {
             if (lbrace == null || rbrace == null) {
-                if (stmts.isEmpty()) throw new IllegalStateException("Synthetic block with no statement");
+                if (stmts.isEmpty()) throw new IllegalStateException("Illegal or synthetic block with no statement");
                 return stmts.getFirst().span();
             }
 
@@ -147,6 +158,8 @@ public sealed interface Stmt {
         void visitDeclaration(Declaration stmt);
 
         void visitExport(Export stmt);
+
+        void visitExternal(Extern stmt);
 
         void visitExprStmt(ExprStmt stmt);
 
@@ -164,6 +177,7 @@ public sealed interface Stmt {
                 case System system -> visitSystem(system);
                 case Declaration decl -> visitDeclaration(decl);
                 case Export export -> visitExport(export);
+                case Extern extern -> visitExternal(extern);
                 case ExprStmt exprStmt -> visitExprStmt(exprStmt);
                 case End end -> visitEnd(end);
                 case NamedBlock nb -> visitNamedBlock(nb);

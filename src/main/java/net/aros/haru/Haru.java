@@ -35,12 +35,11 @@ public class Haru {
             String source,
             DiagnosticCollector diagnosticCollector,
             @Nullable IdentifierCollector identifierCollector,
-            @NotNull UnaryOperator<Compiler> compilerConfiguration,
             @Nullable TranslationFile oldTranslationFile
     ) {
         return lex(source, diagnosticCollector, identifierCollector)
                 .flatMap(tokens -> parse(tokens, diagnosticCollector, identifierCollector))
-                .flatMap(program -> compile(program, diagnosticCollector, compilerConfiguration, oldTranslationFile));
+                .flatMap(program -> compile(program, diagnosticCollector, oldTranslationFile));
     }
 
     public static Optional<List<Token>> lex(String source, DiagnosticCollector diagnosticCollector, @Nullable IdentifierCollector identifierCollector) {
@@ -62,12 +61,9 @@ public class Haru {
     public static Optional<CompiledProgram> compile(
             Program program,
             DiagnosticCollector diagnosticCollector,
-            @NotNull UnaryOperator<Compiler> compilerConfiguration,
             @Nullable TranslationFile oldTranslationFile
     ) {
-        CompiledProgram cProgram = compilerConfiguration.apply(
-                new Compiler(diagnosticCollector, program, oldTranslationFile)
-        ).compile();
+        CompiledProgram cProgram = new Compiler(diagnosticCollector, program, oldTranslationFile).compile();
         if (diagnosticCollector.hasErrors()) {
             return Optional.empty();
         }

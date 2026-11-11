@@ -103,7 +103,7 @@ public class TextParser {
     private String describeInvalidPlaceholder(String raw, String name, boolean terminated) {
         if (!terminated) return "Unterminated placeholder";
         if (name.isEmpty()) return "Empty placeholder '{}'";
-        return "Invalid placeholder name '{" + raw + "}'";
+        return "Invalid placeholder names '{" + raw + "}'";
     }
 
     private void parseTag() {
@@ -112,7 +112,7 @@ public class TextParser {
             return;
         }
         if (!isAlpha(peek())) {
-            diagnostics.error("Invalid tag syntax, expected tag name after '<'", spanFromPartStart());
+            diagnostics.error("Invalid tag syntax, expected tag names after '<'", spanFromPartStart());
             currentScope().append('<');
             return;
         }
@@ -169,7 +169,7 @@ public class TextParser {
     private void parseClosingTag() {
         skipWhitespace();
         if (!isAlpha(peek())) {
-            diagnostics.error("Invalid closing tag, expected tag name after '</'", spanFromPartStart());
+            diagnostics.error("Invalid closing tag, expected tag names after '</'", spanFromPartStart());
             currentScope().append("</");
             return;
         }

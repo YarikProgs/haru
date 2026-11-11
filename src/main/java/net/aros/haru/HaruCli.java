@@ -15,7 +15,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.function.UnaryOperator;
@@ -49,9 +48,6 @@ public class HaruCli implements Callable<Integer> {
 
     @CommandLine.Option(names = {"-f", "--force"}, description = "Always recompile even if fresh binary is present. Default: no")
     private boolean force;
-
-    @CommandLine.Option(arity = "0..", names = {"-e", "--external-var"}, description = "Declare external variable")
-    private List<String> externalVariables;
 
     public static void main(String[] args) {
         System.exit(new CommandLine(new HaruCli()).execute(args));
@@ -100,9 +96,6 @@ public class HaruCli implements Callable<Integer> {
     public Integer call() throws IOException {
         int ex = checkPaths();
         if (ex != 0) return ex;
-
-        if (externalVariables == null)
-            externalVariables = List.of();
 
         return compileFile();
     }
@@ -193,7 +186,6 @@ public class HaruCli implements Callable<Integer> {
                 source,
                 diagnosticCollector,
                 null,
-                compiler -> compiler.declareExternalAll(externalVariables),
                 translationFile
         );
     }

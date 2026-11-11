@@ -33,7 +33,7 @@ public sealed interface Expr {
      * <p>
      * Example: {@code a}
      *
-     * @param name name of the variable
+     * @param name names of the variable
      */
     record Variable(Token name) implements Expr {
         @Override

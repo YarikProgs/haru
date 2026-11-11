@@ -37,18 +37,6 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
         this.translationMerger = new TranslationMerger(oldTranslationFile);
     }
 
-    public Compiler declareExternal(String name) {
-        slots.put(name, slots.size());
-        return this;
-    }
-
-    public Compiler declareExternalAll(@NotNull Collection<String> variables) {
-        for (String variable : variables) {
-            declareExternal(variable);
-        }
-        return this;
-    }
-
     public CompiledProgram compile() {
         for (Stmt stmt : program.statements()) {
             visit(stmt);
@@ -109,7 +97,7 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
 
     @Override
     public void visitLiteral(Expr.@NotNull Literal expr) {
-        emit(new Instruction.PushConst(toValue(expr.value())));
+        emit(new Instruction.PushConst(packValue(expr.value())));
     }
 
     @Override
@@ -229,26 +217,27 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
 
     @Override
     public void visitDeclaration(Stmt.@NotNull Declaration stmt) {
-        String name = stmt.name().lexeme();
-        if (slots.containsKey(name)) {
-            diagnosticCollector.error("Variable '" + name + "' already defined", stmt.name().span());
-            compilationFailed = true;
-            return;
+        if (uniqueVariable(stmt.name())) {
+            int slot = slots.computeIfAbsent(stmt.name().lexeme(), ignored -> slots.size());
+            visit(stmt.value());
+            emit(new Instruction.Store(slot));
         }
-        int slot = slots.computeIfAbsent(name, ignored -> slots.size());
-        visit(stmt.value());
-        emit(new Instruction.Store(slot));
     }
 
     @Override
-    public void visitExport(Stmt.Export stmt) {
-        String name = stmt.name().lexeme();
-        if (exports.containsKey(name)) {
-            diagnosticCollector.error("Export '" + name + "' already defined", stmt.name().span());
-            compilationFailed = true;
-            return;
+    public void visitExport(Stmt.@NotNull Export stmt) {
+        if (uniqueExport(stmt.name())) {
+            exports.put(stmt.name().lexeme(), packValue(stmt.value().value()));
         }
-        exports.put(name, toValue(stmt.value().value()));
+    }
+
+    @Override
+    public void visitExternal(Stmt.@NotNull Extern stmt) {
+        for (Token name : stmt.names()) {
+            if (uniqueVariable(name)) {
+                slots.put(name.lexeme(), slots.size());
+            }
+        }
     }
 
     @Override
@@ -291,7 +280,7 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
         instructions.add(instruction);
     }
 
-    private Value toValue(Object object) {
+    private Value packValue(Object object) {
         return switch (object) {
             case Double d -> Value.number(d);
             case String s -> Value.literalRef(addLiteral(s));
@@ -301,5 +290,24 @@ public class Compiler implements Expr.Visitor, Stmt.Visitor {
         };
     }
 
-    private record DoSite(int index, Token name) {}
+    private boolean uniqueVariable(@NotNull Token tok) {
+        if (slots.containsKey(tok.lexeme())) {
+            diagnosticCollector.error("Variable '" + tok.lexeme() + "' already defined", tok.span());
+            compilationFailed = true;
+            return false;
+        }
+        return true;
+    }
+
+    private boolean uniqueExport(@NotNull Token tok) {
+        if (exports.containsKey(tok.lexeme())) {
+            diagnosticCollector.error("Export '" + tok.lexeme() + "' already defined", tok.span());
+            compilationFailed = true;
+            return false;
+        }
+        return true;
+    }
+
+    private record DoSite(int index, Token name) {
+    }
 }

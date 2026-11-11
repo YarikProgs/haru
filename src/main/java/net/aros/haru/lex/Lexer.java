@@ -26,6 +26,7 @@ public class Lexer {
         KEYWORDS.put("or", OR);
         KEYWORDS.put("not", NOT);
         KEYWORDS.put("export", EXPORT);
+        KEYWORDS.put("extern", EXTERN);
     }
 
     private static final Set<TokenType> STMT_END_TOKENS = Set.of(

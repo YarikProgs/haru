@@ -20,7 +20,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.UnaryOperator;
 
 public class HaruTextDocumentService implements TextDocumentService {
     private final Map<String, IdentifierCollector> identifierCollectors = new ConcurrentHashMap<>();
@@ -60,7 +59,6 @@ public class HaruTextDocumentService implements TextDocumentService {
                 text,
                 diagnosticCollector,
                 identifierCollector,
-                UnaryOperator.identity(),
                 null
         );
 

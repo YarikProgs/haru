@@ -15,7 +15,7 @@ import java.util.Map;
 
 public class ProgramIO {
     private static final byte[] MAGIC = {(byte) 0x89, 'H', 'A', 'R', 'U', 0x0D, 0x0A, 0x1A};
-    private static final short FORMAT_VERSION = 1;
+    private static final short FORMAT_VERSION = 2;
 
     public static void exportFile(String source, @NotNull CompiledProgram program, OutputStream stream) throws IOException {
         DataOutputStream dos = new DataOutputStream(stream);
