@@ -81,7 +81,7 @@
         },
         {
           "name": "keyword.declaration.haru",
-          "match": "\\b(let)\\b"
+          "match": "\\b(let|export|extern)\\b"
         }
       ]
     },
